@@ -108,4 +108,37 @@ describe('DashboardView', () => {
 
     clickSpy.mockRestore()
   })
+
+  it('filtre par groupe de travail', async () => {
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = [makeAttendee(1, 'Alice Dupont'), makeAttendee(2, 'Bob Martin')]
+    store.groupMap = { 1: 1, 2: 2 }
+    store.groupCount = 2
+    store.selectedEventId = 1262
+    await wrapper.vm.$nextTick()
+
+    const select = wrapper.find('select[aria-label="Filtrer par groupe"]')
+    expect(select.exists()).toBe(true)
+
+    await select.setValue('1')
+
+    expect(wrapper.findAll('tbody tr')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Alice Dupont')
+    expect(wrapper.text()).not.toContain('Bob Martin')
+  })
+
+  it('le bouton Impression ouvre la configuration', async () => {
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = [makeAttendee(1, 'Alice Dupont')]
+    store.selectedEventId = 1262
+    await wrapper.vm.$nextTick()
+
+    const button = wrapper.findAll('button').find((b) => b.text() === 'Impression')
+    expect(button).toBeDefined()
+    await button!.trigger('click')
+
+    expect(wrapper.text()).toContain('Configuration d’impression')
+  })
 })

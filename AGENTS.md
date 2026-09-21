@@ -42,6 +42,10 @@ Event Tickets Plus).
   l'événement propriétaire). Le endpoint tickets ignore aussi `event=`.
 - Check-in/out : `PATCH /wp-json/tribe/tickets/v1/attendees/{id}` avec le
   paramètre **`check_in`** (et non `checked_in`, qui est en lecture seule).
+- Groupes de travail : pas de champ WP — assignations persistées en
+  localStorage (`etp-groups:<eventId>`). Impression du badge possible
+  uniquement si le participant est checké ET a un groupe. Config badge en
+  localStorage (`etp-badge-config`).
 
 ## Déploiement (Docker)
 

@@ -4,7 +4,12 @@ import AttendeeTable from '@/components/AttendeeTable.vue'
 import { createTestI18n } from '@/test/i18n'
 import type { Attendee } from '@/types/tickets'
 
-function mountTable(props: { attendees: Attendee[]; loading?: boolean }) {
+function mountTable(props: {
+  attendees: Attendee[]
+  loading?: boolean
+  groups?: Record<number, number>
+  groupCount?: number
+}) {
   return mount(AttendeeTable, { props, global: { plugins: [createTestI18n()] } })
 }
 
@@ -84,11 +89,11 @@ describe('AttendeeTable', () => {
   }
 
   it('affiche la colonne Actions avec les états selon le check-in', () => {
-    const wrapper = mountTable({ attendees })
+    const wrapper = mountTable({ attendees, groups: { 10: 1 } })
 
     expect(wrapper.findAll('th').map((th) => th.text())).toContain('Actions')
 
-    // Alice : checkée → check-out et Print Badge actifs
+    // Alice : checkée avec groupe → check-out et Print Badge actifs
     const [checkIn1, checkOut1, print1] = actionButtons(wrapper, 0)
     expect(checkIn1.attributes('disabled')).toBeDefined()
     expect(checkOut1.attributes('disabled')).toBeUndefined()
@@ -101,8 +106,24 @@ describe('AttendeeTable', () => {
     expect(print2.attributes('disabled')).toBeDefined()
   })
 
+  it('désactive Print Badge sans groupe, même si le participant est checké', () => {
+    const wrapper = mountTable({ attendees, groups: {} })
+
+    const [, , printCheckedNoGroup] = actionButtons(wrapper, 0)
+    expect(printCheckedNoGroup.attributes('disabled')).toBeDefined()
+  })
+
+  it('permet d’assigner un groupe via le select de la colonne Groupe', async () => {
+    const wrapper = mountTable({ attendees, groupCount: 3 })
+
+    const select = wrapper.findAll('tbody tr')[1]!.find('select.group-select')
+    await select.setValue('2')
+
+    expect(wrapper.emitted('setGroup')).toEqual([[11, 2]])
+  })
+
   it('émet checkIn / checkOut / print avec le bon participant', async () => {
-    const wrapper = mountTable({ attendees })
+    const wrapper = mountTable({ attendees, groups: { 10: 1 } })
     const [, checkOut1, print1] = actionButtons(wrapper, 0)
     const [checkIn2] = actionButtons(wrapper, 1)
 

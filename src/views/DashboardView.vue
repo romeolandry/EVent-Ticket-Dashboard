@@ -4,11 +4,17 @@ import { storeToRefs } from 'pinia'
 import EventSelector from '@/components/EventSelector.vue'
 import AttendeeTable from '@/components/AttendeeTable.vue'
 import StatsModal from '@/components/StatsModal.vue'
+import PrinterConfigModal from '@/components/PrinterConfigModal.vue'
 import { useEventsStore } from '@/stores/events'
 import { useAttendeesStore } from '@/stores/attendees'
 import { arrivalDay } from '@/services/attendeeStats'
 import { attendeesToCsv } from '@/services/csvExport'
 import { fieldLabel } from '@/services/fieldLabels'
+import {
+  loadBadgeConfig,
+  saveBadgeConfig,
+  type BadgeConfig,
+} from '@/types/badge'
 import { useI18n } from 'vue-i18n'
 import type { Attendee } from '@/types/tickets'
 
@@ -22,22 +28,33 @@ const {
   isLoading: attendeesLoading,
   error: attendeesError,
   pendingActionId,
+  groupMap,
+  groupCount,
 } = storeToRefs(attendeesStore)
 
 const showStats = ref(false)
+const showPrinterConfig = ref(false)
+const badgeConfig = ref<BadgeConfig>(loadBadgeConfig())
 const nameFilter = ref('')
 const arrivalFilter = ref('')
+const groupFilter = ref('')
 const checkedInCount = computed(() => attendees.value.filter((a) => a.checkedIn).length)
 const arrivalOptions = computed(() =>
   [...new Set(attendees.value.map(arrivalDay).filter((v): v is string => !!v))].sort((a, b) =>
     a.localeCompare(b),
   ),
 )
+const groupOptions = computed(() => Array.from({ length: groupCount.value }, (_, i) => i + 1))
+const availableFieldKeys = computed(() => [
+  ...new Set(attendees.value.flatMap((a) => Object.keys(a.fields))),
+])
 const filteredAttendees = computed(() => {
   const query = nameFilter.value.trim().toLowerCase()
   return attendees.value.filter((a) => {
     if (query && !a.name.toLowerCase().includes(query)) return false
     if (arrivalFilter.value && arrivalDay(a) !== arrivalFilter.value) return false
+    if (groupFilter.value && String(groupMap.value[a.id] ?? '') !== groupFilter.value)
+      return false
     return true
   })
 })
@@ -48,9 +65,17 @@ onMounted(() => {
 
 function onEventSelect(eventId: number) {
   showStats.value = false
+  showPrinterConfig.value = false
   nameFilter.value = ''
   arrivalFilter.value = ''
+  groupFilter.value = ''
   attendeesStore.loadAttendees(eventId)
+}
+
+function onSavePrinterConfig(config: BadgeConfig) {
+  badgeConfig.value = config
+  saveBadgeConfig(config)
+  showPrinterConfig.value = false
 }
 
 function exportCsv() {
@@ -85,8 +110,36 @@ function escapeHtml(text: string): string {
 }
 
 function printBadge(attendee: Attendee) {
+  const config = badgeConfig.value
   const eventTitle =
-    events.value.find((e) => e.id === attendeesStore.selectedEventId)?.title ?? ''
+    config.customTitle.trim() ||
+    (events.value.find((e) => e.id === attendeesStore.selectedEventId)?.title ?? '')
+  const group = groupMap.value[attendee.id]
+
+  const lines: string[] = []
+  if (config.showEventTitle && eventTitle) {
+    lines.push(`<p class="event">${escapeHtml(eventTitle)}</p>`)
+  }
+  lines.push(`<p class="name">${escapeHtml(attendee.name)}</p>`)
+  if (config.showGroup && group != null) {
+    lines.push(`<p class="group">${escapeHtml(t('badge.group', { n: group }))}</p>`)
+  }
+  if (config.showTicket && attendee.ticket) {
+    lines.push(`<p class="ticket">${escapeHtml(attendee.ticket)}</p>`)
+  }
+  if (config.showEmail && attendee.email) {
+    lines.push(`<p class="email">${escapeHtml(attendee.email)}</p>`)
+  }
+  for (const key of config.fieldKeys) {
+    const value = attendee.fields[key]
+    if (value) {
+      lines.push(
+        `<p class="custom"><strong>${escapeHtml(fieldLabel(key, t))}</strong> : ${escapeHtml(value)}</p>`,
+      )
+    }
+  }
+  lines.push(`<p class="id">#${attendee.id}</p>`)
+
   const win = window.open('', '_blank', 'width=420,height=600')
   if (!win) return
   win.document.write(`<!doctype html>
@@ -99,19 +152,17 @@ function printBadge(attendee: Attendee) {
   .badge { border: 2px solid #333; border-radius: 16px; padding: 24px; width: 340px; }
   .event { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 16px; }
   .name { font-size: 28px; font-weight: 700; margin: 0 0 8px; }
+  .group { display: inline-block; font-size: 14px; font-weight: 700; color: #fff; background: #4f46e5; border-radius: 999px; padding: 2px 12px; margin: 0 0 8px; }
   .ticket { font-size: 16px; color: #4f46e5; font-weight: 600; margin: 0 0 4px; }
-  .email { font-size: 13px; color: #666; margin: 0 0 16px; }
-  .id { font-size: 12px; color: #999; }
+  .email { font-size: 13px; color: #666; margin: 0 0 10px; }
+  .custom { font-size: 13px; margin: 0 0 4px; }
+  .id { font-size: 12px; color: #999; margin-top: 12px; }
   @media print { body { padding: 0; } }
 </style>
 </head>
 <body>
   <div class="badge">
-    <p class="event">${escapeHtml(eventTitle)}</p>
-    <p class="name">${escapeHtml(attendee.name)}</p>
-    <p class="ticket">${escapeHtml(attendee.ticket)}</p>
-    <p class="email">${escapeHtml(attendee.email)}</p>
-    <p class="id">#${attendee.id}</p>
+    ${lines.join('\n    ')}
   </div>
 </body>
 </html>`)
@@ -128,15 +179,19 @@ function printBadge(attendee: Attendee) {
         <h1>{{ t('dashboard.title') }}</h1>
         <p class="subtitle">{{ t('dashboard.subtitle') }}</p>
       </div>
-      <button
-        v-if="attendeesStore.selectedEventId != null"
-        type="button"
-        class="btn-primary"
-        :disabled="attendeesLoading || attendees.length === 0"
-        @click="showStats = true"
-      >
-        {{ t('dashboard.stats') }}
-      </button>
+      <div v-if="attendeesStore.selectedEventId != null" class="header-actions">
+        <button type="button" class="btn-secondary-plain" @click="showPrinterConfig = true">
+          {{ t('dashboard.printerConfig') }}
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          :disabled="attendeesLoading || attendees.length === 0"
+          @click="showStats = true"
+        >
+          {{ t('dashboard.stats') }}
+        </button>
+      </div>
     </div>
 
     <EventSelector :events="events" :loading="eventsLoading" @select="onEventSelect" />
@@ -173,7 +228,17 @@ function printBadge(attendee: Attendee) {
             {{ option }}
           </option>
         </select>
-        <span v-if="nameFilter.trim() || arrivalFilter" class="filter-count">
+        <select
+          v-model="groupFilter"
+          class="filter-select"
+          :aria-label="t('dashboard.groupFilterAria')"
+        >
+          <option value="">{{ t('dashboard.groupFilterAll') }}</option>
+          <option v-for="n in groupOptions" :key="n" :value="String(n)">
+            {{ t('dashboard.groupOption', { n }) }}
+          </option>
+        </select>
+        <span v-if="nameFilter.trim() || arrivalFilter || groupFilter" class="filter-count">
           {{
             t('dashboard.resultCount', {
               shown: filteredAttendees.length,
@@ -190,12 +255,29 @@ function printBadge(attendee: Attendee) {
         :attendees="filteredAttendees"
         :loading="attendeesLoading"
         :pending-action-id="pendingActionId"
+        :groups="groupMap"
+        :group-count="groupCount"
         @check-in="attendeesStore.updateCheckIn($event, true)"
         @check-out="attendeesStore.updateCheckIn($event, false)"
         @print="printBadge"
+        @set-group="attendeesStore.setGroup"
       />
       <p v-if="attendeesError" class="error" role="alert">{{ attendeesError }}</p>
     </section>
+
+    <PrinterConfigModal
+      v-if="showPrinterConfig"
+      :config="badgeConfig"
+      :event-title="
+        events.find((e) => e.id === attendeesStore.selectedEventId)?.title ?? ''
+      "
+      :available-field-keys="availableFieldKeys"
+      :group-count="groupCount"
+      @save="onSavePrinterConfig"
+      @close="showPrinterConfig = false"
+      @group-count-change="attendeesStore.setGroupCount"
+      @auto-assign="attendeesStore.autoAssignGroups"
+    />
 
     <StatsModal v-if="showStats" :attendees="attendees" @close="showStats = false" />
   </main>
@@ -254,6 +336,29 @@ h1 {
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.btn-secondary-plain {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-background);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.btn-secondary-plain:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .summary {

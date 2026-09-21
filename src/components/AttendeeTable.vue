@@ -12,14 +12,19 @@ const props = withDefaults(
     loading?: boolean
     /** Id du participant dont une action (check-in/out) est en cours. */
     pendingActionId?: number | null
+    /** Groupes de travail : attendeeId → numéro de groupe. */
+    groups?: Record<number, number>
+    /** Nombre de groupes disponibles à l'assignation. */
+    groupCount?: number
   }>(),
-  { loading: false, pendingActionId: null },
+  { loading: false, pendingActionId: null, groups: () => ({}), groupCount: 4 },
 )
 
 defineEmits<{
   checkIn: [attendeeId: number]
   checkOut: [attendeeId: number]
   print: [attendee: Attendee]
+  setGroup: [attendeeId: number, group: number | null]
 }>()
 
 /** Colonnes dynamiques : union des clés des champs personnalisés de tous les participants. */
@@ -49,6 +54,7 @@ const dynamicColumns = computed<string[]>(() => {
             <th v-for="column in dynamicColumns" :key="column">
               {{ fieldLabel(column, t) }}
             </th>
+            <th>{{ t('table.group') }}</th>
             <th class="actions-col">{{ t('table.actions') }}</th>
           </tr>
         </thead>
@@ -64,6 +70,26 @@ const dynamicColumns = computed<string[]>(() => {
             </td>
             <td v-for="column in dynamicColumns" :key="column">
               {{ attendee.fields[column] ?? '' }}
+            </td>
+            <td>
+              <select
+                class="group-select"
+                :class="{ assigned: groups[attendee.id] != null }"
+                :value="groups[attendee.id] ?? ''"
+                :aria-label="t('table.group')"
+                @change="
+                  $emit(
+                    'setGroup',
+                    attendee.id,
+                    ($event.target as HTMLSelectElement).value === ''
+                      ? null
+                      : Number(($event.target as HTMLSelectElement).value),
+                  )
+                "
+              >
+                <option value="">—</option>
+                <option v-for="n in groupCount" :key="n" :value="n">{{ n }}</option>
+              </select>
             </td>
             <td class="actions">
               <button
@@ -85,7 +111,10 @@ const dynamicColumns = computed<string[]>(() => {
               <button
                 type="button"
                 class="btn-action btn-print"
-                :disabled="!attendee.checkedIn"
+                :disabled="!attendee.checkedIn || groups[attendee.id] == null"
+                :title="
+                  groups[attendee.id] == null ? t('table.printNeedsGroup') : undefined
+                "
                 @click="$emit('print', attendee)"
               >
                 {{ t('table.printBadge') }}
@@ -207,6 +236,21 @@ tbody tr:hover {
   color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-color: var(--color-accent);
+}
+
+.group-select {
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.group-select.assigned {
+  border-color: var(--color-accent);
+  font-weight: 700;
 }
 
 .state {
