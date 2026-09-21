@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Attendee } from '@/types/tickets'
 import { arrivalStats, childrenStats } from '@/services/attendeeStats'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   attendees: Attendee[]
@@ -28,24 +31,33 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   <div class="overlay" role="presentation" @click.self="emit('close')">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="stats-title">
       <header class="modal-header">
-        <h2 id="stats-title">Statistiques</h2>
-        <button type="button" class="close" aria-label="Fermer" @click="emit('close')">✕</button>
+        <h2 id="stats-title">{{ t('stats.title') }}</h2>
+        <button
+          type="button"
+          class="close"
+          :aria-label="t('stats.close')"
+          @click="emit('close')"
+        >
+          ✕
+        </button>
       </header>
 
       <section class="stat">
-        <h3>Kinder sortiert bei Alter <span class="hint">Enfants par âge</span></h3>
-        <p v-if="children.total === 0" class="empty">Aucun enfant déclaré.</p>
+        <h3>{{ t('stats.childrenTitle') }}</h3>
+        <p v-if="children.total === 0" class="empty">{{ t('stats.noChildren') }}</p>
         <template v-else>
           <ul class="bars">
             <li v-for="row in children.byAge" :key="row.age" class="bar-row">
-              <span class="bar-label">{{ row.age }} {{ row.age.startsWith('<') ? 'ans' : `an${row.age === '1' ? '' : 's'}` }}</span>
+              <span class="bar-label">
+                {{ t('stats.yearsOld', { age: row.age, s: row.age === '1' ? '' : 's' }) }}
+              </span>
               <span class="bar-track">
                 <span class="bar-fill" :style="{ width: `${(row.count / maxAgeCount) * 100}%` }" />
               </span>
               <span class="bar-count">{{ row.count }}</span>
             </li>
             <li v-if="children.unknown > 0" class="bar-row muted">
-              <span class="bar-label">Âge inconnu</span>
+              <span class="bar-label">{{ t('stats.unknownAge') }}</span>
               <span class="bar-track">
                 <span
                   class="bar-fill"
@@ -55,16 +67,15 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
               <span class="bar-count">{{ children.unknown }}</span>
             </li>
           </ul>
-          <p class="total">Total : {{ children.total }} enfant{{ children.total > 1 ? 's' : '' }}</p>
+          <p class="total">{{ t('stats.totalChildren', { count: children.total }) }}</p>
         </template>
       </section>
 
       <section class="stat">
         <h3>
-          Ankunftstag <span class="hint">Jour d'arrivée (« Wann kommen Sie an? » / « Ab wann
-          willst du dabei sein? »)</span>
+          {{ t('stats.arrivalTitle') }} <span class="hint">{{ t('stats.arrivalHint') }}</span>
         </h3>
-        <p v-if="arrivals.length === 0" class="empty">Aucune réponse.</p>
+        <p v-if="arrivals.length === 0" class="empty">{{ t('stats.noArrivals') }}</p>
         <ul v-else class="bars">
           <li v-for="row in arrivals" :key="row.label" class="bar-row">
             <span class="bar-label">{{ row.label }}</span>

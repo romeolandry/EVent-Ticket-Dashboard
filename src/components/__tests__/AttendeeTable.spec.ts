@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import AttendeeTable from '@/components/AttendeeTable.vue'
+import { createTestI18n } from '@/test/i18n'
 import type { Attendee } from '@/types/tickets'
+
+function mountTable(props: { attendees: Attendee[]; loading?: boolean }) {
+  return mount(AttendeeTable, { props, global: { plugins: [createTestI18n()] } })
+}
 
 const attendees: Attendee[] = [
   {
@@ -24,7 +29,7 @@ const attendees: Attendee[] = [
 
 describe('AttendeeTable', () => {
   it('affiche les participants avec leurs colonnes de base', () => {
-    const wrapper = mount(AttendeeTable, { props: { attendees } })
+    const wrapper = mountTable({ attendees })
 
     expect(wrapper.findAll('tbody tr')).toHaveLength(2)
     expect(wrapper.text()).toContain('Alice Dupont')
@@ -32,7 +37,7 @@ describe('AttendeeTable', () => {
   })
 
   it('génère dynamiquement les colonnes des champs personnalisés', () => {
-    const wrapper = mount(AttendeeTable, { props: { attendees } })
+    const wrapper = mountTable({ attendees })
     const headers = wrapper.findAll('th').map((th) => th.text())
 
     expect(headers).toContain('entreprise')
@@ -40,15 +45,35 @@ describe('AttendeeTable', () => {
     expect(wrapper.text()).toContain('Végétarien')
   })
 
+  it('traduit les libellés de champs WordPress connus', () => {
+    const wrapper = mountTable({
+      attendees: [
+        {
+          id: 20,
+          name: 'Claire',
+          email: '',
+          ticket: '',
+          checkedIn: false,
+          fields: { 'Ab wann willst du dabei sein?': 'Freitag, den 2.' },
+        },
+      ],
+    })
+    const headers = wrapper.findAll('th').map((th) => th.text())
+
+    expect(headers).toContain('À partir de quand serez-vous présent ?')
+    expect(headers).not.toContain('Ab wann willst du dabei sein?')
+    expect(wrapper.text()).toContain('Freitag, den 2.')
+  })
+
   it('affiche un message quand il n’y a aucun participant', () => {
-    const wrapper = mount(AttendeeTable, { props: { attendees: [] } })
+    const wrapper = mountTable({ attendees: [] })
 
     expect(wrapper.text()).toContain('Aucun participant')
     expect(wrapper.find('table').exists()).toBe(false)
   })
 
   it('affiche un indicateur de chargement', () => {
-    const wrapper = mount(AttendeeTable, { props: { attendees: [], loading: true } })
+    const wrapper = mountTable({ attendees: [], loading: true })
 
     expect(wrapper.text()).toContain('Chargement des participants')
   })
@@ -59,7 +84,7 @@ describe('AttendeeTable', () => {
   }
 
   it('affiche la colonne Actions avec les états selon le check-in', () => {
-    const wrapper = mount(AttendeeTable, { props: { attendees } })
+    const wrapper = mountTable({ attendees })
 
     expect(wrapper.findAll('th').map((th) => th.text())).toContain('Actions')
 
@@ -77,7 +102,7 @@ describe('AttendeeTable', () => {
   })
 
   it('émet checkIn / checkOut / print avec le bon participant', async () => {
-    const wrapper = mount(AttendeeTable, { props: { attendees } })
+    const wrapper = mountTable({ attendees })
     const [, checkOut1, print1] = actionButtons(wrapper, 0)
     const [checkIn2] = actionButtons(wrapper, 1)
 

@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import StatsModal from '@/components/StatsModal.vue'
+import { createTestI18n } from '@/test/i18n'
 import type { Attendee } from '@/types/tickets'
+
+function mountModal(props: { attendees: Attendee[] }) {
+  return mount(StatsModal, { props, global: { plugins: [createTestI18n()] } })
+}
 
 const attendees: Attendee[] = [
   {
@@ -27,7 +32,7 @@ const attendees: Attendee[] = [
 
 describe('StatsModal', () => {
   it('affiche les enfants par âge et le total', () => {
-    const wrapper = mount(StatsModal, { props: { attendees } })
+    const wrapper = mountModal({ attendees })
     const section = wrapper.text()
 
     expect(section).toContain('Enfants par âge')
@@ -38,14 +43,14 @@ describe('StatsModal', () => {
   })
 
   it('affiche les statistiques d’arrivée', () => {
-    const wrapper = mount(StatsModal, { props: { attendees } })
+    const wrapper = mountModal({ attendees })
 
     expect(wrapper.text()).toContain('Freitag (05.06.2026)')
     expect(wrapper.text()).toContain('Donnerst (04.06.2026)')
   })
 
   it('émet "close" au clic sur le bouton de fermeture', async () => {
-    const wrapper = mount(StatsModal, { props: { attendees } })
+    const wrapper = mountModal({ attendees })
 
     await wrapper.find('button.close').trigger('click')
 
@@ -53,7 +58,7 @@ describe('StatsModal', () => {
   })
 
   it('émet "close" au clic sur le fond', async () => {
-    const wrapper = mount(StatsModal, { props: { attendees } })
+    const wrapper = mountModal({ attendees })
 
     await wrapper.find('.overlay').trigger('click.self')
 

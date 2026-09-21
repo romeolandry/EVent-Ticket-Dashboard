@@ -1,0 +1,73 @@
+import type fr from './fr'
+
+export default {
+  app: {
+    title: 'Event Ticket Plus',
+    tagline: 'Teilnehmer-Dashboard',
+  },
+  language: {
+    label: 'Sprache',
+  },
+  events: {
+    label: 'Veranstaltung',
+    loading: 'Veranstaltungen werden geladen…',
+    placeholder: 'Veranstaltung auswählen',
+  },
+  dashboard: {
+    title: 'Teilnehmer',
+    subtitle: 'Anmeldungen und Check-ins pro Veranstaltung',
+    stats: 'Statistiken',
+    registered: 'Angemeldet',
+    checkedIn: 'Anwesend',
+    nameFilterPlaceholder: 'Nach Name filtern…',
+    nameFilterAria: 'Nach Name filtern',
+    arrivalFilterAll: 'Ankunftstag — Alle',
+    arrivalFilterAria: 'Nach Ankunftstag filtern',
+    exportCsv: 'Als CSV exportieren',
+    resultCount: '{shown} / {total} Teilnehmer',
+  },
+  table: {
+    name: 'Name',
+    email: 'E-Mail',
+    ticket: 'Ticket',
+    present: 'Eingecheckt',
+    actions: 'Aktionen',
+    yes: 'Ja',
+    no: 'Nein',
+    loading: 'Teilnehmer werden geladen…',
+    empty: 'Keine Teilnehmer vorhanden.',
+    checkIn: 'Check-in',
+    checkOut: 'Check-out',
+    printBadge: 'Badge drucken',
+  },
+  stats: {
+    title: 'Statistiken',
+    close: 'Schließen',
+    childrenTitle: 'Kinder nach Alter',
+    noChildren: 'Keine Kinder angemeldet.',
+    unknownAge: 'Alter unbekannt',
+    yearsOld: '{age} Jahr{s}',
+    totalChildren: 'Gesamt: {count} Kind(er)',
+    arrivalTitle: 'Ankunftstag',
+    arrivalHint: '« Wann kommen Sie an? » / « Ab wann willst du dabei sein? »',
+    noArrivals: 'Keine Antworten.',
+  },
+  badge: {
+    title: 'Badge — {name}',
+  },
+  csv: {
+    name: 'Name',
+    email: 'E-Mail',
+    ticket: 'Ticket',
+    present: 'Eingecheckt',
+    yes: 'Ja',
+    no: 'Nein',
+  },
+  fields: {
+    arrivalFrom: 'Ab wann willst du dabei sein?',
+    arrivalDay: 'Wann kommen Sie an?',
+    childrenCount: 'Anzahl der mitreisenden Kinder (8–14 Jahre)',
+    children: 'Kinder',
+    support: 'Willst du unterstützen?',
+  },
+} satisfies typeof fr

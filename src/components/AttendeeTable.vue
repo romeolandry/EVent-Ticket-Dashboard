@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { fieldLabel } from '@/services/fieldLabels'
 import type { Attendee } from '@/types/tickets'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -32,18 +36,20 @@ const dynamicColumns = computed<string[]>(() => {
 
 <template>
   <div class="attendee-table">
-    <p v-if="loading" class="state">Chargement des participants…</p>
-    <p v-else-if="attendees.length === 0" class="state">Aucun participant à afficher.</p>
+    <p v-if="loading" class="state">{{ t('table.loading') }}</p>
+    <p v-else-if="attendees.length === 0" class="state">{{ t('table.empty') }}</p>
     <div v-else class="table-card">
       <table>
         <thead>
           <tr>
-            <th>Nom</th>
-            <th>Email</th>
-            <th>Billet</th>
-            <th>Présent</th>
-            <th v-for="column in dynamicColumns" :key="column">{{ column }}</th>
-            <th class="actions-col">Actions</th>
+            <th>{{ t('table.name') }}</th>
+            <th>{{ t('table.email') }}</th>
+            <th>{{ t('table.ticket') }}</th>
+            <th>{{ t('table.present') }}</th>
+            <th v-for="column in dynamicColumns" :key="column">
+              {{ fieldLabel(column, t) }}
+            </th>
+            <th class="actions-col">{{ t('table.actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -53,7 +59,7 @@ const dynamicColumns = computed<string[]>(() => {
             <td>{{ attendee.ticket }}</td>
             <td>
               <span class="badge" :class="attendee.checkedIn ? 'badge-ok' : 'badge-no'">
-                {{ attendee.checkedIn ? 'Oui' : 'Non' }}
+                {{ attendee.checkedIn ? t('table.yes') : t('table.no') }}
               </span>
             </td>
             <td v-for="column in dynamicColumns" :key="column">
@@ -66,7 +72,7 @@ const dynamicColumns = computed<string[]>(() => {
                 :disabled="attendee.checkedIn || pendingActionId === attendee.id"
                 @click="$emit('checkIn', attendee.id)"
               >
-                Check-in
+                {{ t('table.checkIn') }}
               </button>
               <button
                 type="button"
@@ -74,7 +80,7 @@ const dynamicColumns = computed<string[]>(() => {
                 :disabled="!attendee.checkedIn || pendingActionId === attendee.id"
                 @click="$emit('checkOut', attendee.id)"
               >
-                Check-out
+                {{ t('table.checkOut') }}
               </button>
               <button
                 type="button"
@@ -82,7 +88,7 @@ const dynamicColumns = computed<string[]>(() => {
                 :disabled="!attendee.checkedIn"
                 @click="$emit('print', attendee)"
               >
-                Print Badge
+                {{ t('table.printBadge') }}
               </button>
             </td>
           </tr>

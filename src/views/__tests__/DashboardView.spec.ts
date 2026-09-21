@@ -3,7 +3,12 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import DashboardView from '@/views/DashboardView.vue'
 import { useAttendeesStore } from '@/stores/attendees'
+import { createTestI18n } from '@/test/i18n'
 import type { Attendee } from '@/types/tickets'
+
+function mountView() {
+  return mount(DashboardView, { global: { plugins: [createTestI18n()] } })
+}
 
 vi.mock('@/services/wpApi', () => ({
   fetchEvents: vi.fn<() => Promise<never[]>>(async () => []),
@@ -20,7 +25,7 @@ describe('DashboardView', () => {
   })
 
   it('filtre le tableau par nom (insensible à la casse)', async () => {
-    const wrapper = mount(DashboardView)
+    const wrapper = mountView()
     const store = useAttendeesStore()
     store.attendees = [makeAttendee(1, 'Alice Dupont'), makeAttendee(2, 'Bob Martin')]
     store.selectedEventId = 1262
@@ -37,7 +42,7 @@ describe('DashboardView', () => {
   })
 
   it('affiche tous les participants quand le filtre est vide', async () => {
-    const wrapper = mount(DashboardView)
+    const wrapper = mountView()
     const store = useAttendeesStore()
     store.attendees = [makeAttendee(1, 'Alice Dupont'), makeAttendee(2, 'Bob Martin')]
     store.selectedEventId = 1262
@@ -55,7 +60,7 @@ describe('DashboardView', () => {
   }
 
   it('filtre par jour d’arrivée (« Ab wann willst du dabei sein? »)', async () => {
-    const wrapper = mount(DashboardView)
+    const wrapper = mountView()
     const store = useAttendeesStore()
     store.attendees = [
       attendeeWithArrival(1, 'Alice', 'Freitag, den 2.'),
@@ -85,7 +90,7 @@ describe('DashboardView', () => {
       .spyOn(HTMLAnchorElement.prototype, 'click')
       .mockImplementation(() => {})
 
-    const wrapper = mount(DashboardView)
+    const wrapper = mountView()
     const store = useAttendeesStore()
     store.attendees = [attendeeWithArrival(1, 'Alice', 'Freitag, den 2.')]
     store.selectedEventId = 1262

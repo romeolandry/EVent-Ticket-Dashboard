@@ -8,7 +8,11 @@ import { useEventsStore } from '@/stores/events'
 import { useAttendeesStore } from '@/stores/attendees'
 import { arrivalDay } from '@/services/attendeeStats'
 import { attendeesToCsv } from '@/services/csvExport'
+import { fieldLabel } from '@/services/fieldLabels'
+import { useI18n } from 'vue-i18n'
 import type { Attendee } from '@/types/tickets'
+
+const { t } = useI18n()
 
 const eventsStore = useEventsStore()
 const attendeesStore = useAttendeesStore()
@@ -51,7 +55,20 @@ function onEventSelect(eventId: number) {
 
 function exportCsv() {
   if (attendees.value.length === 0) return
-  const blob = new Blob([attendeesToCsv(attendees.value)], { type: 'text/csv;charset=utf-8' })
+  const blob = new Blob(
+    [
+      attendeesToCsv(attendees.value, {
+        name: t('csv.name'),
+        email: t('csv.email'),
+        ticket: t('csv.ticket'),
+        present: t('csv.present'),
+        yes: t('csv.yes'),
+        no: t('csv.no'),
+      },
+      (key) => fieldLabel(key, t)),
+    ],
+    { type: 'text/csv;charset=utf-8' },
+  )
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
   link.download = `participants-evenement-${attendeesStore.selectedEventId}.csv`
@@ -76,7 +93,7 @@ function printBadge(attendee: Attendee) {
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Badge — ${escapeHtml(attendee.name)}</title>
+<title>${escapeHtml(t('badge.title', { name: attendee.name }))}</title>
 <style>
   body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; }
   .badge { border: 2px solid #333; border-radius: 16px; padding: 24px; width: 340px; }
@@ -108,8 +125,8 @@ function printBadge(attendee: Attendee) {
   <main class="dashboard">
     <div class="dashboard-header">
       <div>
-        <h1>Participants</h1>
-        <p class="subtitle">Inscrits et présences par événement</p>
+        <h1>{{ t('dashboard.title') }}</h1>
+        <p class="subtitle">{{ t('dashboard.subtitle') }}</p>
       </div>
       <button
         v-if="attendeesStore.selectedEventId != null"
@@ -118,7 +135,7 @@ function printBadge(attendee: Attendee) {
         :disabled="attendeesLoading || attendees.length === 0"
         @click="showStats = true"
       >
-        Statistiques
+        {{ t('dashboard.stats') }}
       </button>
     </div>
 
@@ -129,11 +146,11 @@ function printBadge(attendee: Attendee) {
       <div v-if="!attendeesLoading && attendees.length > 0" class="summary">
         <div class="chip">
           <span class="chip-value">{{ attendees.length }}</span>
-          <span class="chip-label">Inscrits</span>
+          <span class="chip-label">{{ t('dashboard.registered') }}</span>
         </div>
         <div class="chip">
           <span class="chip-value">{{ checkedInCount }}</span>
-          <span class="chip-label">Présents</span>
+          <span class="chip-label">{{ t('dashboard.checkedIn') }}</span>
         </div>
       </div>
 
@@ -142,24 +159,31 @@ function printBadge(attendee: Attendee) {
           v-model="nameFilter"
           type="search"
           class="search-input"
-          placeholder="Filtrer par nom…"
-          aria-label="Filtrer par nom"
+          :placeholder="t('dashboard.nameFilterPlaceholder')"
+          :aria-label="t('dashboard.nameFilterAria')"
         />
         <select
           v-if="arrivalOptions.length > 0"
           v-model="arrivalFilter"
           class="filter-select"
-          aria-label="Filtrer par jour d'arrivée (Ab wann willst du dabei sein?)"
+          :aria-label="t('dashboard.arrivalFilterAria')"
         >
-          <option value="">Ab wann willst du dabei sein? — Tous</option>
+          <option value="">{{ t('dashboard.arrivalFilterAll') }}</option>
           <option v-for="option in arrivalOptions" :key="option" :value="option">
             {{ option }}
           </option>
         </select>
         <span v-if="nameFilter.trim() || arrivalFilter" class="filter-count">
-          {{ filteredAttendees.length }} / {{ attendees.length }} participants
+          {{
+            t('dashboard.resultCount', {
+              shown: filteredAttendees.length,
+              total: attendees.length,
+            })
+          }}
         </span>
-        <button type="button" class="btn-secondary" @click="exportCsv">Exporter en CSV</button>
+        <button type="button" class="btn-secondary" @click="exportCsv">
+          {{ t('dashboard.exportCsv') }}
+        </button>
       </div>
 
       <AttendeeTable

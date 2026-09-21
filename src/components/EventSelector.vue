@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import type { WpEvent } from '@/types/tickets'
+
+const { t } = useI18n()
 
 defineProps<{
   events: WpEvent[]
@@ -21,10 +24,10 @@ function onChange(event: Event) {
 
 <template>
   <div class="event-selector">
-    <label for="event-select">Événement</label>
+    <label for="event-select">{{ t('events.label') }}</label>
     <select id="event-select" :disabled="loading" @change="onChange">
       <option value="" disabled selected>
-        {{ loading ? 'Chargement des événements…' : 'Choisissez un événement' }}
+        {{ loading ? t('events.loading') : t('events.placeholder') }}
       </option>
       <option v-for="event in events" :key="event.id" :value="event.id">
         {{ event.title }}

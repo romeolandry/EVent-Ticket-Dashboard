@@ -22,6 +22,13 @@ Event Tickets Plus).
 - API consommées : `/wp-json/tribe/events/v1/events` et
   `/wp-json/tribe/tickets/v1/attendees?event=<id>`.
 
+## Internationalisation
+
+- vue-i18n (composition, `legacy: false`). Locales : `fr` (défaut), `en`, `de`
+  dans `src/i18n/` ; `fr.ts` est la référence (`satisfies typeof fr` dans les
+  autres). Locale persistée dans `localStorage` (`etp-locale`). Les tests qui
+  montent des composants utilisent `createTestI18n()` de `src/test/i18n.ts`.
+
 ## Comportements métier
 
 - Thème clair uniquement (les styles utilisent les variables `--color-*` de
