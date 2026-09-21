@@ -128,6 +128,33 @@ describe('DashboardView', () => {
     expect(wrapper.text()).not.toContain('Bob Martin')
   })
 
+  it('filtre par statut de check-in', async () => {
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = [
+      { ...makeAttendee(1, 'Alice Dupont'), checkedIn: true },
+      makeAttendee(2, 'Bob Martin'),
+    ]
+    store.selectedEventId = 1262
+    await wrapper.vm.$nextTick()
+
+    const select = wrapper.find('select[aria-label="Filtrer par présence"]')
+    expect(select.exists()).toBe(true)
+
+    await select.setValue('yes')
+    expect(wrapper.findAll('tbody tr')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Alice Dupont')
+    expect(wrapper.text()).not.toContain('Bob Martin')
+
+    await select.setValue('no')
+    expect(wrapper.findAll('tbody tr')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Bob Martin')
+    expect(wrapper.text()).not.toContain('Alice Dupont')
+
+    await select.setValue('')
+    expect(wrapper.findAll('tbody tr')).toHaveLength(2)
+  })
+
   it('le bouton Impression ouvre la configuration', async () => {
     const wrapper = mountView()
     const store = useAttendeesStore()

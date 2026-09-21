@@ -38,6 +38,7 @@ const badgeConfig = ref<BadgeConfig>(loadBadgeConfig())
 const nameFilter = ref('')
 const arrivalFilter = ref('')
 const groupFilter = ref('')
+const checkInFilter = ref('')
 const checkedInCount = computed(() => attendees.value.filter((a) => a.checkedIn).length)
 const arrivalOptions = computed(() =>
   [...new Set(attendees.value.map(arrivalDay).filter((v): v is string => !!v))].sort((a, b) =>
@@ -55,6 +56,8 @@ const filteredAttendees = computed(() => {
     if (arrivalFilter.value && arrivalDay(a) !== arrivalFilter.value) return false
     if (groupFilter.value && String(groupMap.value[a.id] ?? '') !== groupFilter.value)
       return false
+    if (checkInFilter.value === 'yes' && !a.checkedIn) return false
+    if (checkInFilter.value === 'no' && a.checkedIn) return false
     return true
   })
 })
@@ -69,6 +72,7 @@ function onEventSelect(eventId: number) {
   nameFilter.value = ''
   arrivalFilter.value = ''
   groupFilter.value = ''
+  checkInFilter.value = ''
   attendeesStore.loadAttendees(eventId)
 }
 
@@ -238,7 +242,19 @@ function printBadge(attendee: Attendee) {
             {{ t('dashboard.groupOption', { n }) }}
           </option>
         </select>
-        <span v-if="nameFilter.trim() || arrivalFilter || groupFilter" class="filter-count">
+        <select
+          v-model="checkInFilter"
+          class="filter-select"
+          :aria-label="t('dashboard.checkInFilterAria')"
+        >
+          <option value="">{{ t('dashboard.checkInFilterAll') }}</option>
+          <option value="yes">{{ t('dashboard.checkInFilterYes') }}</option>
+          <option value="no">{{ t('dashboard.checkInFilterNo') }}</option>
+        </select>
+        <span
+          v-if="nameFilter.trim() || arrivalFilter || groupFilter || checkInFilter"
+          class="filter-count"
+        >
           {{
             t('dashboard.resultCount', {
               shown: filteredAttendees.length,

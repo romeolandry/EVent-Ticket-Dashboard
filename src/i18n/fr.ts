@@ -27,6 +27,10 @@ export default {
     groupFilterAll: 'Groupe — Tous',
     groupFilterAria: 'Filtrer par groupe',
     groupOption: 'Groupe {n}',
+    checkInFilterAll: 'Présence — Tous',
+    checkInFilterAria: 'Filtrer par présence',
+    checkInFilterYes: 'Présents',
+    checkInFilterNo: 'Absents',
   },
   table: {
     name: 'Nom',

@@ -29,6 +29,10 @@ export default {
     groupFilterAll: 'Group — All',
     groupFilterAria: 'Filter by group',
     groupOption: 'Group {n}',
+    checkInFilterAll: 'Check-in — All',
+    checkInFilterAria: 'Filter by check-in status',
+    checkInFilterYes: 'Checked in',
+    checkInFilterNo: 'Not checked in',
   },
   table: {
     name: 'Name',
