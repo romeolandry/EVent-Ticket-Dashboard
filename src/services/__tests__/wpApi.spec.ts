@@ -94,6 +94,24 @@ describe('wpApi — événements', () => {
     expect(events.map((e) => e.id)).toEqual([2])
   })
 
+  it('privilégie la configuration runtime (config.js du conteneur Docker)', async () => {
+    ;(window as unknown as { __APP_CONFIG__?: unknown }).__APP_CONFIG__ = {
+      VITE_WP_API_URL: 'https://runtime.test',
+    }
+    try {
+      const fetchMock = mockFetch({ events: [] })
+      const { fetchEvents } = await import('@/services/wpApi')
+
+      await fetchEvents()
+
+      expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+        'https://runtime.test/wp-json/tribe/events/v1/events',
+      )
+    } finally {
+      delete (window as unknown as { __APP_CONFIG__?: unknown }).__APP_CONFIG__
+    }
+  })
+
   it('exclut les brouillons et événements privés', async () => {
     mockFetch({
       events: [

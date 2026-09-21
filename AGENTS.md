@@ -43,6 +43,17 @@ Event Tickets Plus).
 - Check-in/out : `PATCH /wp-json/tribe/tickets/v1/attendees/{id}` avec le
   paramètre **`check_in`** (et non `checked_in`, qui est en lecture seule).
 
+## Déploiement (Docker)
+
+- `docker build -t event-ticket-plus-dashboard .` puis
+  `docker run -p 8080:80 -e VITE_WP_API_URL=… -e VITE_WP_AUTH_USER=… -e
+  VITE_WP_AUTH_PASSWORD=… event-ticket-plus-dashboard`
+- Ou `docker compose up` (lit le `.env` local, non inclus dans l'image).
+- Configuration runtime : `docker/docker-entrypoint.d/40-generate-config.sh`
+  génère `/config.js` au démarrage ; `wpApi.ts` lit `window.__APP_CONFIG__`
+  en priorité sur `import.meta.env`. Rien de secret n'est figé dans l'image
+  (`.env` exclu via `.dockerignore`).
+
 ## Spécificités de l'environnement
 
 - IPv6 cassée vers registry.npmjs.org : préfixer les commandes npm avec

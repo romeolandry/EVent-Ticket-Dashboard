@@ -1,8 +1,25 @@
 import type { Attendee, RawWpAttendee, RawWpEvent, WpEvent } from '@/types/tickets'
 
-const BASE_URL = (import.meta.env.VITE_WP_API_URL ?? '').replace(/\/$/, '')
-const AUTH_USER = import.meta.env.VITE_WP_AUTH_USER ?? ''
-const AUTH_PASSWORD = import.meta.env.VITE_WP_AUTH_PASSWORD ?? ''
+/** Configuration injectée au démarrage par le conteneur Docker (config.js). */
+interface RuntimeConfig {
+  VITE_WP_API_URL?: string
+  VITE_WP_AUTH_USER?: string
+  VITE_WP_AUTH_PASSWORD?: string
+}
+
+function runtimeConfig(): RuntimeConfig {
+  return (
+    (window as unknown as { __APP_CONFIG__?: RuntimeConfig }).__APP_CONFIG__ ?? {}
+  )
+}
+
+const BASE_URL = (runtimeConfig().VITE_WP_API_URL || import.meta.env.VITE_WP_API_URL || '').replace(
+  /\/$/,
+  '',
+)
+const AUTH_USER = runtimeConfig().VITE_WP_AUTH_USER || import.meta.env.VITE_WP_AUTH_USER || ''
+const AUTH_PASSWORD =
+  runtimeConfig().VITE_WP_AUTH_PASSWORD || import.meta.env.VITE_WP_AUTH_PASSWORD || ''
 
 async function request<T>(path: string): Promise<T> {
   if (!BASE_URL) {

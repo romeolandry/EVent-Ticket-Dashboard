@@ -1,0 +1,11 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - '8080:80'
+    environment:
+      # Valeurs prises dans le shell ou le .env local (non incluses dans l'image)
+      VITE_WP_API_URL: ${VITE_WP_API_URL:-}
+      VITE_WP_AUTH_USER: ${VITE_WP_AUTH_USER:-}
+      VITE_WP_AUTH_PASSWORD: ${VITE_WP_AUTH_PASSWORD:-}
+    restart: unless-stopped
