@@ -6,9 +6,17 @@ const props = withDefaults(
   defineProps<{
     attendees: Attendee[]
     loading?: boolean
+    /** Id du participant dont une action (check-in/out) est en cours. */
+    pendingActionId?: number | null
   }>(),
-  { loading: false },
+  { loading: false, pendingActionId: null },
 )
+
+defineEmits<{
+  checkIn: [attendeeId: number]
+  checkOut: [attendeeId: number]
+  print: [attendee: Attendee]
+}>()
 
 /** Colonnes dynamiques : union des clés des champs personnalisés de tous les participants. */
 const dynamicColumns = computed<string[]>(() => {
@@ -26,42 +34,173 @@ const dynamicColumns = computed<string[]>(() => {
   <div class="attendee-table">
     <p v-if="loading" class="state">Chargement des participants…</p>
     <p v-else-if="attendees.length === 0" class="state">Aucun participant à afficher.</p>
-    <table v-else>
-      <thead>
-        <tr>
-          <th>Nom</th>
-          <th>Email</th>
-          <th>Billet</th>
-          <th>Présent</th>
-          <th v-for="column in dynamicColumns" :key="column">{{ column }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="attendee in attendees" :key="attendee.id">
-          <td>{{ attendee.name }}</td>
-          <td>{{ attendee.email }}</td>
-          <td>{{ attendee.ticket }}</td>
-          <td>{{ attendee.checkedIn ? 'Oui' : 'Non' }}</td>
-          <td v-for="column in dynamicColumns" :key="column">
-            {{ attendee.fields[column] ?? '' }}
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Email</th>
+            <th>Billet</th>
+            <th>Présent</th>
+            <th v-for="column in dynamicColumns" :key="column">{{ column }}</th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="attendee in attendees" :key="attendee.id">
+            <td class="name">{{ attendee.name }}</td>
+            <td>{{ attendee.email }}</td>
+            <td>{{ attendee.ticket }}</td>
+            <td>
+              <span class="badge" :class="attendee.checkedIn ? 'badge-ok' : 'badge-no'">
+                {{ attendee.checkedIn ? 'Oui' : 'Non' }}
+              </span>
+            </td>
+            <td v-for="column in dynamicColumns" :key="column">
+              {{ attendee.fields[column] ?? '' }}
+            </td>
+            <td class="actions">
+              <button
+                type="button"
+                class="btn-action"
+                :disabled="attendee.checkedIn || pendingActionId === attendee.id"
+                @click="$emit('checkIn', attendee.id)"
+              >
+                Check-in
+              </button>
+              <button
+                type="button"
+                class="btn-action"
+                :disabled="!attendee.checkedIn || pendingActionId === attendee.id"
+                @click="$emit('checkOut', attendee.id)"
+              >
+                Check-out
+              </button>
+              <button
+                type="button"
+                class="btn-action btn-print"
+                :disabled="!attendee.checkedIn"
+                @click="$emit('print', attendee)"
+              >
+                Print Badge
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.table-card {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-background);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 0.9rem;
 }
 
-th,
-td {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-border);
+th {
+  padding: 0.7rem 1rem;
   text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text);
+  opacity: 0.65;
+  background: var(--color-background-soft);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+td {
+  padding: 0.65rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr {
+  transition: background 0.15s;
+}
+
+tbody tr:hover {
+  background: var(--color-background-soft);
+}
+
+.name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.badge-ok {
+  color: #15803d;
+  background: color-mix(in srgb, #22c55e 15%, transparent);
+}
+
+.badge-no {
+  color: #b45309;
+  background: color-mix(in srgb, #f59e0b 15%, transparent);
+}
+
+.actions-col {
+  text-align: right;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.btn-action {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-background);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.btn-action:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background: var(--color-background-soft);
+}
+
+.btn-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-print:hover:not(:disabled) {
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
 }
 
 .state {

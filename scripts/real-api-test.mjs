@@ -55,14 +55,29 @@ for (const e of events.events ?? []) {
 }
 
 if (eventId) {
-  const data = await get(
-    `/wp-json/tribe/tickets/v1/attendees?event=${encodeURIComponent(eventId)}&per_page=100`,
-  )
-  const list = Array.isArray(data) ? data : (data.attendees ?? [])
-  console.log(`\nParticipants de l'événement ${eventId} : ${list.length} (total: ${data.total ?? '?'})`)
+  const path = (page) =>
+    `/wp-json/tribe/tickets/v1/attendees?event=${encodeURIComponent(eventId)}&per_page=100&page=${page}`
+  const first = await get(path(1))
+  let list = Array.isArray(first) ? first : (first.attendees ?? [])
+  const totalPages = Array.isArray(first) ? 1 : (first.total_pages ?? 1)
+  for (let page = 2; page <= totalPages; page++) {
+    const data = await get(path(page))
+    list = list.concat(Array.isArray(data) ? data : (data.attendees ?? []))
+  }
+  console.log(`\nParticipants de l'événement ${eventId} : ${list.length} (total: ${first.total ?? '?'})`)
+  const fieldKeys = new Set()
   for (const a of list) {
+    for (const key of Object.keys(a.information ?? {})) fieldKeys.add(key)
+  }
+  console.log(
+    `\nChamps « Attendee information » (${fieldKeys.size}) : ${[...fieldKeys].join(' | ') || 'aucun'}`,
+  )
+  for (const a of list) {
+    const info = Object.entries(a.information ?? {})
+      .map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(', ') : v}`)
+      .join('; ')
     console.log(
-      `  ${a.id} | ${a.purchaser_name ?? a.title ?? ''} | ${a.purchaser_email ?? ''} | checked_in: ${a.checked_in ?? false}`,
+      `  ${a.id} | ${(a.purchaser_name ?? a.title ?? '').trim()} | ${a.purchaser_email ?? a.email ?? ''} | ${a.ticket?.title ?? a.ticket ?? ''} | checked_in: ${a.checked_in ?? false}${info ? ` | ${info}` : ''}`,
     )
   }
 }

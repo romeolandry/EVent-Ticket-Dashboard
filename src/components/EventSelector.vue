@@ -41,12 +41,42 @@ function onChange(event: Event) {
   max-width: 28rem;
 }
 
+label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
+}
+
 select {
-  padding: 0.5rem 0.75rem;
+  appearance: none;
+  padding: 0.65rem 2.5rem 0.65rem 0.9rem;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-background);
+  border-radius: 10px;
+  background: var(--color-background-soft)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right 0.9rem center;
   color: var(--color-text);
-  font-size: 1rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+select:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+}
+
+select:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+select:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 </style>

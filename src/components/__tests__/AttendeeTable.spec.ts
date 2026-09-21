@@ -52,4 +52,42 @@ describe('AttendeeTable', () => {
 
     expect(wrapper.text()).toContain('Chargement des participants')
   })
+
+  function actionButtons(wrapper: ReturnType<typeof mount>, rowIndex: number) {
+    const buttons = wrapper.findAll('tbody tr')[rowIndex]!.findAll('button')
+    return [buttons[0]!, buttons[1]!, buttons[2]!] as const
+  }
+
+  it('affiche la colonne Actions avec les états selon le check-in', () => {
+    const wrapper = mount(AttendeeTable, { props: { attendees } })
+
+    expect(wrapper.findAll('th').map((th) => th.text())).toContain('Actions')
+
+    // Alice : checkée → check-out et Print Badge actifs
+    const [checkIn1, checkOut1, print1] = actionButtons(wrapper, 0)
+    expect(checkIn1.attributes('disabled')).toBeDefined()
+    expect(checkOut1.attributes('disabled')).toBeUndefined()
+    expect(print1.attributes('disabled')).toBeUndefined()
+
+    // Bob : non checké → seul check-in actif, Print Badge inactif
+    const [checkIn2, checkOut2, print2] = actionButtons(wrapper, 1)
+    expect(checkIn2.attributes('disabled')).toBeUndefined()
+    expect(checkOut2.attributes('disabled')).toBeDefined()
+    expect(print2.attributes('disabled')).toBeDefined()
+  })
+
+  it('émet checkIn / checkOut / print avec le bon participant', async () => {
+    const wrapper = mount(AttendeeTable, { props: { attendees } })
+    const [, checkOut1, print1] = actionButtons(wrapper, 0)
+    const [checkIn2] = actionButtons(wrapper, 1)
+
+    await checkIn2.trigger('click')
+    expect(wrapper.emitted('checkIn')).toEqual([[11]])
+
+    await checkOut1.trigger('click')
+    expect(wrapper.emitted('checkOut')).toEqual([[10]])
+
+    await print1.trigger('click')
+    expect(wrapper.emitted('print')?.[0]?.[0]).toMatchObject({ id: 10 })
+  })
 })

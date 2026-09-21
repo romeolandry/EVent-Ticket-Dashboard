@@ -22,6 +22,20 @@ Event Tickets Plus).
 - API consommées : `/wp-json/tribe/events/v1/events` et
   `/wp-json/tribe/tickets/v1/attendees?event=<id>`.
 
+## Comportements métier
+
+- Thème clair uniquement (les styles utilisent les variables `--color-*` de
+  `src/assets/base.css`, pas de media query sombre).
+- Le dashboard n'affiche que les événements publics et actifs (`fetchEvents` :
+  `status` = publish et `end_date`/`start_date` >= aujourd'hui). Un
+  participant n'est affiché que si son événement est public et actif.
+- Le endpoint attendees **ignore totalement le paramètre `event=`** (même
+  réponse quelle que soit la valeur sur wach-auf.com) : `fetchAttendees`
+  récupère toutes les pages et filtre côté client sur `post_id` (= id de
+  l'événement propriétaire). Le endpoint tickets ignore aussi `event=`.
+- Check-in/out : `PATCH /wp-json/tribe/tickets/v1/attendees/{id}` avec le
+  paramètre **`check_in`** (et non `checked_in`, qui est en lecture seule).
+
 ## Spécificités de l'environnement
 
 - IPv6 cassée vers registry.npmjs.org : préfixer les commandes npm avec

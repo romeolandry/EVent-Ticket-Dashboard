@@ -12,6 +12,8 @@ export interface RawWpEvent {
   start_date?: string
   end_date?: string
   url?: string
+  /** Statut WordPress (« publish », « draft », « private », …). */
+  status?: string
 }
 
 /** Événement normalisé utilisé dans l'application. */
@@ -29,12 +31,17 @@ export interface WpEvent {
  */
 export interface RawWpAttendee {
   id: number
+  /** Identifiant WordPress de l'événement propriétaire (filtre fiable côté client). */
+  post_id?: number
   title?: string
   purchaser_name?: string
   purchaser_email?: string
+  email?: string
   ticket_id?: number
-  ticket?: string
+  ticket?: string | { id?: number; title?: string }
   checked_in?: boolean
+  /** Champs « Attendee information » (Event Tickets Plus) tels qu'exposés par l'API v1. */
+  information?: Record<string, unknown>
   attendee_meta?: Record<string, unknown>
   meta?: Record<string, unknown>
 }
@@ -45,6 +52,8 @@ export interface Attendee {
   name: string
   email: string
   ticket: string
+  /** Identifiant du billet (permet de vérifier à quel événement il est lié). */
+  ticketId?: number
   checkedIn: boolean
   fields: Record<string, string>
 }
