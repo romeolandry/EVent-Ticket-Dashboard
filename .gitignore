@@ -40,3 +40,5 @@ __screenshots__/
 
 # Variables d'environnement locales (peuvent contenir des identifiants)
 .env
+*.devin/
+*.vscode/
