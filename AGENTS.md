@@ -49,14 +49,22 @@ Event Tickets Plus).
 
 ## Déploiement (Docker)
 
-- `docker build -t event-ticket-plus-dashboard .` puis
-  `docker run -p 8080:80 -e VITE_WP_API_URL=… -e VITE_WP_AUTH_USER=… -e
-  VITE_WP_AUTH_PASSWORD=… event-ticket-plus-dashboard`
-- Ou `docker compose up` (lit le `.env` local, non inclus dans l'image).
-- Configuration runtime : `docker/docker-entrypoint.d/40-generate-config.sh`
-  génère `/config.js` au démarrage ; `wpApi.ts` lit `window.__APP_CONFIG__`
-  en priorité sur `import.meta.env`. Rien de secret n'est figé dans l'image
-  (`.env` exclu via `.dockerignore`).
+- `docker compose up` (lit le `.env` local, jamais inclus dans l'image) ou
+  `docker build -t event-ticket-plus-dashboard .` + `docker run -p 8080:8080
+  -e VITE_WP_API_URL=… -e SUPERUSER_EMAIL=… …`
+- Le runtime est un serveur Node (`server/index.mjs`) : SPA statique +
+  `/api/auth` (login par email) + `/api/access-list` (superuser) +
+  `/config.js` dynamique.
+- Authentification : liste des emails autorisés dans
+  `/data/allowed-emails.json` (volume, inaccessible via HTTP) ; le superuser
+  vient de `SUPERUSER_EMAIL`. Logique pure testable : `server/accessList.mjs`.
+  Sessions : tokens en mémoire (12 h) — redémarrage du conteneur = re-login.
+- **Proxy WP** : le front n'a aucun identifiant WordPress — il appelle
+  `/wp-api/*` avec le token de session ; le serveur ajoute le Basic auth
+  (`WP_AUTH_*` / `VITE_WP_*` en env) et relaie `GET`/`PATCH`.
+- En dev, `/api` et `/wp-api` sont proxifiés vers `localhost:8890` (lancer :
+  `DATA_DIR=/tmp/etp-data SUPERUSER_EMAIL=… WP_API_URL=… WP_AUTH_USER=…
+  WP_AUTH_PASSWORD=… PORT=8890 node server/index.mjs`).
 
 ## Spécificités de l'environnement
 

@@ -10,6 +10,14 @@ export default defineConfig({
     vue(),
     vueDevTools(),
   ],
+  // En dev : le serveur Node tourne sur le port 8890
+  // (DATA_DIR=/tmp/etp-data SUPERUSER_EMAIL=… node server/index.mjs)
+  server: {
+    proxy: {
+      '/api': 'http://localhost:8890',
+      '/wp-api': 'http://localhost:8890',
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

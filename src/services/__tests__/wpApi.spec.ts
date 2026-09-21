@@ -28,37 +28,39 @@ describe('wpApi — authentification', () => {
     vi.restoreAllMocks()
   })
 
-  it("n'envoie pas d'en-tête Authorization sans identifiants", async () => {
+  it('appelle le proxy /wp-api sans identifiants WordPress dans le navigateur', async () => {
     const fetchMock = mockFetch({ events: [] })
     const { fetchEvents } = await import('@/services/wpApi')
 
     await fetchEvents()
 
-    expect(headersOf(fetchMock)).toEqual({ Accept: 'application/json' })
+    const [url] = fetchMock.mock.calls[0] as [string]
+    expect(url).toBe('/wp-api/tribe/events/v1/events')
+    expect(url).not.toContain('wach-auf.com')
+    expect(headersOf(fetchMock).Authorization).toBeUndefined()
   })
 
-  it('ajoute un en-tête Authorization Basic quand les identifiants sont configurés', async () => {
-    vi.stubEnv('VITE_WP_AUTH_USER', 'admin')
-    vi.stubEnv('VITE_WP_AUTH_PASSWORD', 'xxxx yyyy zzzz wwww')
-    const fetchMock = mockFetch({ events: [] })
-    const { fetchEvents } = await import('@/services/wpApi')
-
-    await fetchEvents()
-
-    expect(headersOf(fetchMock).Authorization).toBe(`Basic ${btoa('admin:xxxx yyyy zzzz wwww')}`)
-  })
-
-  it("authentifie aussi les requêtes de participants", async () => {
-    vi.stubEnv('VITE_WP_AUTH_USER', 'admin')
-    vi.stubEnv('VITE_WP_AUTH_PASSWORD', 'secret')
+  it('ajoute le token de session Bearer sur chaque requête', async () => {
+    localStorage.setItem('etp-auth-token', 'tok-xyz')
     const fetchMock = mockFetch({ attendees: [] })
     const { fetchAttendees } = await import('@/services/wpApi')
 
     await fetchAttendees(42)
 
     const urls = fetchMock.mock.calls.map(([url]) => String(url))
-    expect(urls).toContain('https://wp.test/wp-json/tribe/tickets/v1/attendees?per_page=100&page=1')
-    expect(headersOf(fetchMock).Authorization).toBe(`Basic ${btoa('admin:secret')}`)
+    expect(urls).toContain('/wp-api/tribe/tickets/v1/attendees?per_page=100&page=1')
+    expect(headersOf(fetchMock).Authorization).toBe('Bearer tok-xyz')
+    localStorage.removeItem('etp-auth-token')
+  })
+
+  it('signale une session expirée sur 401/403', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockResolvedValue({ ok: false, status: 401 } as Response),
+    )
+    const { fetchEvents } = await import('@/services/wpApi')
+
+    await expect(fetchEvents()).rejects.toThrow('Session expirée')
   })
 })
 
@@ -92,24 +94,6 @@ describe('wpApi — événements', () => {
     const events = await fetchEvents()
 
     expect(events.map((e) => e.id)).toEqual([2])
-  })
-
-  it('privilégie la configuration runtime (config.js du conteneur Docker)', async () => {
-    ;(window as unknown as { __APP_CONFIG__?: unknown }).__APP_CONFIG__ = {
-      VITE_WP_API_URL: 'https://runtime.test',
-    }
-    try {
-      const fetchMock = mockFetch({ events: [] })
-      const { fetchEvents } = await import('@/services/wpApi')
-
-      await fetchEvents()
-
-      expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
-        'https://runtime.test/wp-json/tribe/events/v1/events',
-      )
-    } finally {
-      delete (window as unknown as { __APP_CONFIG__?: unknown }).__APP_CONFIG__
-    }
   })
 
   it('exclut les brouillons et événements privés', async () => {
@@ -156,22 +140,28 @@ describe('wpApi — check-in / check-out', () => {
     vi.restoreAllMocks()
   })
 
-  it('envoie un PATCH avec le paramètre check_in', async () => {
+  it('envoie un PATCH avec le paramètre check_in via le proxy', async () => {
+    localStorage.setItem('etp-auth-token', 'tok-p')
     const fetchMock = mockFetch({})
     const { setCheckedIn } = await import('@/services/wpApi')
 
     await setCheckedIn(1089, true)
 
-    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('https://wp.test/wp-json/tribe/tickets/v1/attendees/1089')
+    const [url, options] = fetchMock.mock.calls[0] as [
+      string,
+      RequestInit & { headers: Record<string, string> },
+    ]
+    expect(url).toBe('/wp-api/tribe/tickets/v1/attendees/1089')
     expect(options.method).toBe('PATCH')
     expect(JSON.parse(String(options.body))).toEqual({ check_in: true })
+    expect(options.headers.Authorization).toBe('Bearer tok-p')
+    localStorage.removeItem('etp-auth-token')
   })
 
   it('lève une erreur si le serveur refuse', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn<typeof fetch>().mockResolvedValue({ ok: false, status: 403 } as Response),
+      vi.fn<typeof fetch>().mockResolvedValue({ ok: false, status: 500 } as Response),
     )
     const { setCheckedIn } = await import('@/services/wpApi')
 

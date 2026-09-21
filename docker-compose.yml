@@ -2,10 +2,17 @@ services:
   dashboard:
     build: .
     ports:
-      - '8080:80'
+      - '8080:8080'
     environment:
       # Valeurs prises dans le shell ou le .env local (non incluses dans l'image)
       VITE_WP_API_URL: ${VITE_WP_API_URL:-}
       VITE_WP_AUTH_USER: ${VITE_WP_AUTH_USER:-}
       VITE_WP_AUTH_PASSWORD: ${VITE_WP_AUTH_PASSWORD:-}
+      SUPERUSER_EMAIL: ${SUPERUSER_EMAIL:-}
+    volumes:
+      # Liste des emails autorisés (jamais accessible via HTTP)
+      - etp-data:/data
     restart: unless-stopped
+
+volumes:
+  etp-data:

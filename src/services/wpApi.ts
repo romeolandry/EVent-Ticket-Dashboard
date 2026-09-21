@@ -1,35 +1,26 @@
 import type { Attendee, RawWpAttendee, RawWpEvent, WpEvent } from '@/types/tickets'
 
-/** Configuration injectée au démarrage par le conteneur Docker (config.js). */
-interface RuntimeConfig {
-  VITE_WP_API_URL?: string
-  VITE_WP_AUTH_USER?: string
-  VITE_WP_AUTH_PASSWORD?: string
-}
+/**
+ * Toutes les requêtes passent par le proxy du serveur Node (`/wp-api/*`) :
+ * les identifiants WordPress ne quittent jamais le serveur. Le token de
+ * session (auth par email) est requis par le proxy.
+ */
+const PROXY_BASE = '/wp-api'
 
-function runtimeConfig(): RuntimeConfig {
-  return (
-    (window as unknown as { __APP_CONFIG__?: RuntimeConfig }).__APP_CONFIG__ ?? {}
-  )
+function sessionHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = localStorage.getItem('etp-auth-token') ?? ''
+  return {
+    Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  }
 }
-
-const BASE_URL = (runtimeConfig().VITE_WP_API_URL || import.meta.env.VITE_WP_API_URL || '').replace(
-  /\/$/,
-  '',
-)
-const AUTH_USER = runtimeConfig().VITE_WP_AUTH_USER || import.meta.env.VITE_WP_AUTH_USER || ''
-const AUTH_PASSWORD =
-  runtimeConfig().VITE_WP_AUTH_PASSWORD || import.meta.env.VITE_WP_AUTH_PASSWORD || ''
 
 async function request<T>(path: string): Promise<T> {
-  if (!BASE_URL) {
-    throw new Error("VITE_WP_API_URL n'est pas configurée (voir .env.example).")
+  const response = await fetch(`${PROXY_BASE}${path}`, { headers: sessionHeaders() })
+  if (response.status === 401 || response.status === 403) {
+    throw new Error('Session expirée — reconnectez-vous.')
   }
-  const headers: Record<string, string> = { Accept: 'application/json' }
-  if (AUTH_USER && AUTH_PASSWORD) {
-    headers.Authorization = `Basic ${btoa(`${AUTH_USER}:${AUTH_PASSWORD}`)}`
-  }
-  const response = await fetch(`${BASE_URL}${path}`, { headers })
   if (!response.ok) {
     throw new Error(`Erreur API WordPress (${response.status}) : ${path}`)
   }
@@ -96,7 +87,7 @@ function isActiveEvent(raw: RawWpEvent, today: string): boolean {
 
 /** Retourne la liste des événements à venir publiés sur le site WordPress. */
 export async function fetchEvents(): Promise<WpEvent[]> {
-  const data = await request<{ events?: RawWpEvent[] }>('/wp-json/tribe/events/v1/events')
+  const data = await request<{ events?: RawWpEvent[] }>('/tribe/events/v1/events')
   const today = new Date().toISOString().slice(0, 10)
   return (data.events ?? []).filter((raw) => isActiveEvent(raw, today)).map(normalizeEvent)
 }
@@ -112,7 +103,7 @@ type AttendeesPage = RawWpAttendee[] | { attendees?: RawWpAttendee[]; total_page
  * son événement (`post_id`) correspond à un événement public et actif.
  */
 export async function fetchAttendees(eventId: number): Promise<Attendee[]> {
-  const path = (page: number) => `/wp-json/tribe/tickets/v1/attendees?per_page=100&page=${page}`
+  const path = (page: number) => `/tribe/tickets/v1/attendees?per_page=100&page=${page}`
   const [events, first] = await Promise.all([fetchEvents(), request<AttendeesPage>(path(1))])
   const publicActiveEventIds = new Set(events.map((e) => e.id))
 
@@ -133,17 +124,17 @@ export async function fetchAttendees(eventId: number): Promise<Attendee[]> {
 
 /** Check-in / check-out d'un participant (PATCH, paramètre `check_in`). */
 export async function setCheckedIn(attendeeId: number, checked: boolean): Promise<void> {
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-  }
-  if (AUTH_USER && AUTH_PASSWORD) {
-    headers.Authorization = `Basic ${btoa(`${AUTH_USER}:${AUTH_PASSWORD}`)}`
-  }
   const response = await fetch(
-    `${BASE_URL}/wp-json/tribe/tickets/v1/attendees/${encodeURIComponent(attendeeId)}`,
-    { method: 'PATCH', headers, body: JSON.stringify({ check_in: checked }) },
+    `${PROXY_BASE}/tribe/tickets/v1/attendees/${encodeURIComponent(attendeeId)}`,
+    {
+      method: 'PATCH',
+      headers: sessionHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ check_in: checked }),
+    },
   )
+  if (response.status === 401 || response.status === 403) {
+    throw new Error('Session expirée — reconnectez-vous.')
+  }
   if (!response.ok) {
     throw new Error(
       `Échec du ${checked ? 'check-in' : 'check-out'} (${response.status}) pour le participant ${attendeeId}`,

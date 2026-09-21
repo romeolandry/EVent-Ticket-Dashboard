@@ -11,13 +11,21 @@ COPY . .
 RUN npm run build
 
 # ---- Production ----
-FROM nginx:alpine
+# Node : sert la SPA + l'API d'authentification (liste d'emails hors racine web)
+FROM node:22-alpine
+WORKDIR /app
 
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY docker/docker-entrypoint.d/40-generate-config.sh /docker-entrypoint.d/40-generate-config.sh
-RUN chmod +x /docker-entrypoint.d/40-generate-config.sh
+COPY --from=build /app/dist ./dist
+COPY server ./server
 
-EXPOSE 80
-# Les variables VITE_WP_* sont injectées dans /usr/share/nginx/html/config.js
-# au démarrage du conteneur (pas de secret figé dans l'image).
+ENV PORT=8080 \
+    DATA_DIR=/data
+
+# SUPERUSER_EMAIL / VITE_WP_* : à fournir au runtime (jamais dans l'image).
+# /data : volume contenant allowed-emails.json (fichier inaccessible via HTTP).
+RUN mkdir -p /data && chown node:node /data
+VOLUME ["/data"]
+EXPOSE 8080
+
+USER node
+CMD ["node", "server/index.mjs"]

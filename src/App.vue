@@ -1,12 +1,24 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { ref } from 'vue'
+import { RouterView, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { SUPPORTED_LOCALES, setLocale, type AppLocale } from '@/i18n'
+import { useAuthStore } from '@/stores/auth'
+import AccessModal from '@/components/AccessModal.vue'
 
 const { t, locale } = useI18n()
+const router = useRouter()
+const auth = useAuthStore()
+const showAccess = ref(false)
 
 function onLocaleChange(event: Event) {
   setLocale((event.target as HTMLSelectElement).value as AppLocale)
+}
+
+async function onLogout() {
+  showAccess.value = false
+  await auth.logout()
+  router.push({ name: 'login' })
 }
 </script>
 
@@ -17,19 +29,39 @@ function onLocaleChange(event: Event) {
       <span class="title">{{ t('app.title') }}</span>
       <span class="tagline">{{ t('app.tagline') }}</span>
     </div>
-    <select
-      class="lang-select"
-      :value="locale"
-      :aria-label="t('language.label')"
-      @change="onLocaleChange"
-    >
-      <option v-for="lang in SUPPORTED_LOCALES" :key="lang" :value="lang">
-        {{ lang.toUpperCase() }}
-      </option>
-    </select>
+    <div class="header-right">
+      <button
+        v-if="auth.isSuperuser"
+        type="button"
+        class="header-btn"
+        @click="showAccess = true"
+      >
+        {{ t('access.open') }}
+      </button>
+      <select
+        class="lang-select"
+        :value="locale"
+        :aria-label="t('language.label')"
+        @change="onLocaleChange"
+      >
+        <option v-for="lang in SUPPORTED_LOCALES" :key="lang" :value="lang">
+          {{ lang.toUpperCase() }}
+        </option>
+      </select>
+      <button
+        v-if="auth.isLoggedIn"
+        type="button"
+        class="header-btn"
+        @click="onLogout"
+      >
+        {{ t('auth.logout') }}
+      </button>
+    </div>
   </header>
 
   <RouterView />
+
+  <AccessModal v-if="showAccess" :token="auth.token" @close="showAccess = false" />
 </template>
 
 <style scoped>
@@ -76,8 +108,30 @@ header {
   opacity: 0.6;
 }
 
-.lang-select {
+.header-right {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.header-btn {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-background);
+  cursor: pointer;
+}
+
+.header-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.lang-select {
   appearance: none;
   padding: 0.35rem 1.8rem 0.35rem 0.7rem;
   border: 1px solid var(--color-border);
