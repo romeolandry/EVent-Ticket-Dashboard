@@ -2,12 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { Attendee } from '@/types/tickets'
 import { fetchAttendees, setCheckedIn } from '@/services/wpApi'
-
-interface GroupState {
-  count: number
-  /** attendeeId → numéro de groupe */
-  map: Record<number, number>
-}
+import { fetchGroups, saveGroups, type GroupState } from '@/services/groupsApi'
 
 const DEFAULT_GROUP_COUNT = 4
 
@@ -36,16 +31,27 @@ export const useAttendeesStore = defineStore('attendees', () => {
   const error = ref<string | null>(null)
   const pendingActionId = ref<number | null>(null)
 
-  /** Groupes de travail : attendeeId → numéro de groupe (persistés par événement). */
+  /**
+   * Groupes de travail : attendeeId → numéro de groupe, persistés côté
+   * serveur par événement — tous les clients connectés partagent les mêmes
+   * assignations. localStorage sert uniquement de cache hors-ligne.
+   */
   const groupMap = ref<Record<number, number>>({})
   const groupCount = ref(DEFAULT_GROUP_COUNT)
 
+  /** Écritures serveur sérialisées : évite les écrasements croisés. */
+  let serverSaveQueue: Promise<void> = Promise.resolve()
+
   function persistGroups() {
-    if (selectedEventId.value == null) return
-    localStorage.setItem(
-      groupsStorageKey(selectedEventId.value),
-      JSON.stringify({ count: groupCount.value, map: groupMap.value } satisfies GroupState),
-    )
+    const eventId = selectedEventId.value
+    if (eventId == null) return
+    const state: GroupState = { count: groupCount.value, map: groupMap.value }
+    localStorage.setItem(groupsStorageKey(eventId), JSON.stringify(state))
+    serverSaveQueue = serverSaveQueue
+      .then(() => saveGroups(eventId, state))
+      .catch((e) => {
+        error.value = e instanceof Error ? e.message : 'Erreur inconnue'
+      })
   }
 
   async function loadAttendees(eventId: number) {
@@ -54,9 +60,11 @@ export const useAttendeesStore = defineStore('attendees', () => {
     error.value = null
     try {
       attendees.value = await fetchAttendees(eventId)
-      const saved = loadGroups(eventId)
+      // Le serveur fait foi ; localStorage n'est qu'un repli (hors-ligne).
+      const saved = (await fetchGroups(eventId).catch(() => null)) ?? loadGroups(eventId)
       groupCount.value = saved.count
       groupMap.value = saved.map
+      localStorage.setItem(groupsStorageKey(eventId), JSON.stringify(saved))
     } catch (e) {
       attendees.value = []
       groupMap.value = {}
@@ -97,12 +105,29 @@ export const useAttendeesStore = defineStore('attendees', () => {
     persistGroups()
   }
 
-  /** Répartit tous les participants équitablement (tourniquet) sur les groupes. */
+  /**
+   * Répartit les participants sur les groupes : les assignations existantes
+   * sont conservées (un participant garde son groupe d'une session à l'autre),
+   * seuls les participants sans groupe sont répartis, en comblant à chaque
+   * fois le groupe le moins rempli.
+   */
   function autoAssignGroups() {
     const map: Record<number, number> = {}
-    attendees.value.forEach((attendee, index) => {
-      map[attendee.id] = (index % groupCount.value) + 1
-    })
+    const sizes = Array.from({ length: groupCount.value }, () => 0)
+    for (const attendee of attendees.value) {
+      const existing = groupMap.value[attendee.id]
+      if (existing != null && existing >= 1 && existing <= groupCount.value) {
+        map[attendee.id] = existing
+        sizes[existing - 1] = (sizes[existing - 1] ?? 0) + 1
+      }
+    }
+    for (const attendee of attendees.value) {
+      if (map[attendee.id] != null) continue
+      let min = 0
+      for (let i = 1; i < sizes.length; i++) if ((sizes[i] ?? 0) < (sizes[min] ?? 0)) min = i
+      map[attendee.id] = min + 1
+      sizes[min] = (sizes[min] ?? 0) + 1
+    }
     groupMap.value = map
     persistGroups()
   }

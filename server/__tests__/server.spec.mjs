@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Test d'intégration du serveur : démarre un faux WordPress et le serveur
  * réel comme processus enfant, puis vérifie le proxy et l'authentification.
@@ -129,6 +130,87 @@ describe('serveur Node — proxy WP et auth', () => {
     const patch = seenRequests.find((r) => r.method === 'PATCH')
     expect(patch.url).toBe('/wp-json/tribe/tickets/v1/attendees/1089')
     expect(JSON.parse(patch.body)).toEqual({ check_in: true })
+  })
+
+  it('les groupes exigent une session (GET et PUT)', async () => {
+    expect((await api('/api/groups?event=1262')).status).toBe(401)
+    expect(
+      (
+        await api('/api/groups?event=1262', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ count: 2, map: { 1: 1 } }),
+        })
+      ).status,
+    ).toBe(401)
+  })
+
+  it('les groupes sont partagés entre tous les clients connectés', async () => {
+    const login = (email) =>
+      api('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      }).then((r) => r.json())
+    // Deux sessions distinctes simulent deux navigateurs différents
+    const clientA = await login('admin@wach-auf.com')
+    const clientB = await login('admin@wach-auf.com')
+
+    const state = { count: 3, map: { 101: 2, 102: 1 } }
+    const put = await api('/api/groups?event=1262', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${clientA.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(state),
+    })
+    expect(put.status).toBe(200)
+
+    const getB = await api('/api/groups?event=1262', {
+      headers: { Authorization: `Bearer ${clientB.token}` },
+    })
+    expect(await getB.json()).toEqual(state)
+
+    // Persisté dans la base SQLite DATA_DIR/groups.db : une ligne par
+    // participant avec son groupe (colonne group_number)
+    const { DatabaseSync } = await import('node:sqlite')
+    const db = new DatabaseSync(join(dataDir, 'groups.db'))
+    const rows = db
+      .prepare(
+        'SELECT attendee_id, group_number FROM attendee_group WHERE event_id = 1262 ORDER BY attendee_id',
+      )
+      .all()
+    db.close()
+    expect(rows).toEqual([
+      { attendee_id: 101, group_number: 2 },
+      { attendee_id: 102, group_number: 1 },
+    ])
+  })
+
+  it('les groupes retournent l’état par défaut pour un événement jamais sauvegardé', async () => {
+    const login = await api('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'admin@wach-auf.com' }),
+    })
+    const { token } = await login.json()
+
+    const res = await api('/api/groups?event=9999', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    expect(await res.json()).toEqual({ count: 4, map: {} })
+  })
+
+  it('un événement invalide est rejeté (400)', async () => {
+    const login = await api('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'admin@wach-auf.com' }),
+    })
+    const { token } = await login.json()
+
+    const res = await api('/api/groups?event=../../secret', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    expect(res.status).toBe(400)
   })
 
   it('la liste d’accès n’est pas exposée via le proxy ni le statique', async () => {

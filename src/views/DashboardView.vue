@@ -7,6 +7,7 @@ import StatsModal from '@/components/StatsModal.vue'
 import PrinterConfigModal from '@/components/PrinterConfigModal.vue'
 import { useEventsStore } from '@/stores/events'
 import { useAttendeesStore } from '@/stores/attendees'
+import { useNotificationsStore } from '@/stores/notifications'
 import { arrivalDay } from '@/services/attendeeStats'
 import { attendeesToCsv } from '@/services/csvExport'
 import { fieldLabel } from '@/services/fieldLabels'
@@ -22,6 +23,7 @@ const { t } = useI18n()
 
 const eventsStore = useEventsStore()
 const attendeesStore = useAttendeesStore()
+const notifications = useNotificationsStore()
 const { events, isLoading: eventsLoading, error: eventsError } = storeToRefs(eventsStore)
 const {
   attendees,
@@ -94,6 +96,28 @@ function onSavePrinterConfig(config: BadgeConfig) {
   badgeConfig.value = config
   saveBadgeConfig(config)
   showPrinterConfig.value = false
+}
+
+function onSetGroup(attendeeId: number, group: number | null) {
+  attendeesStore.setGroup(attendeeId, group)
+  const name = attendees.value.find((a) => a.id === attendeeId)?.name ?? String(attendeeId)
+  notifications.notify(
+    group == null
+      ? t('notify.groupRemoved', { name })
+      : t('notify.groupAssigned', { name, n: group }),
+  )
+}
+
+function onGroupCountChange(count: number) {
+  attendeesStore.setGroupCount(count)
+  notifications.notify(t('notify.groupCountChanged', { count: groupCount.value }))
+}
+
+function onAutoAssignGroups() {
+  attendeesStore.autoAssignGroups()
+  notifications.notify(
+    t('notify.groupsAutoAssigned', { count: groupCount.value, s: groupCount.value > 1 ? 's' : '' }),
+  )
 }
 
 function exportCsv() {
@@ -306,7 +330,7 @@ function printBadge(attendee: Attendee) {
         @check-in="attendeesStore.updateCheckIn($event, true)"
         @check-out="attendeesStore.updateCheckIn($event, false)"
         @print="printBadge"
-        @set-group="attendeesStore.setGroup"
+        @set-group="onSetGroup"
       />
       <nav
         v-if="!attendeesLoading && pageCount > 1"
@@ -352,8 +376,8 @@ function printBadge(attendee: Attendee) {
       :group-count="groupCount"
       @save="onSavePrinterConfig"
       @close="showPrinterConfig = false"
-      @group-count-change="attendeesStore.setGroupCount"
-      @auto-assign="attendeesStore.autoAssignGroups"
+      @group-count-change="onGroupCountChange"
+      @auto-assign="onAutoAssignGroups"
     />
 
     <StatsModal v-if="showStats" :attendees="attendees" @close="showStats = false" />

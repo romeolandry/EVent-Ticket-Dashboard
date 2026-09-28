@@ -6,6 +6,7 @@ import { LOCALE_FLAGS, SUPPORTED_LOCALES, setLocale, type AppLocale } from '@/i1
 import { useAuthStore } from '@/stores/auth'
 import { SESSION_EXPIRED_EVENT } from '@/services/sessionEvents'
 import AccessModal from '@/components/AccessModal.vue'
+import ToastList from '@/components/ToastList.vue'
 
 const { t, locale } = useI18n()
 const router = useRouter()
@@ -72,6 +73,7 @@ async function onLogout() {
   <RouterView />
 
   <AccessModal v-if="showAccess" :token="auth.token" @close="showAccess = false" />
+  <ToastList />
 </template>
 
 <style scoped>

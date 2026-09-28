@@ -120,6 +120,14 @@ export default {
     cancel: 'Annuler',
     save: 'Enregistrer',
   },
+  notify: {
+    dismiss: 'Fermer la notification',
+    groupAssigned: '{name} → groupe {n}',
+    groupRemoved: 'Groupe retiré pour {name}',
+    groupsAutoAssigned:
+      'Répartition terminée : {count} groupe{s} — assignations existantes conservées',
+    groupCountChanged: 'Nombre de groupes : {count}',
+  },
   csv: {
     name: 'Nom',
     email: 'Email',

@@ -121,6 +121,13 @@ export default {
     cancel: 'Cancel',
     save: 'Save',
   },
+  notify: {
+    dismiss: 'Dismiss notification',
+    groupAssigned: '{name} → group {n}',
+    groupRemoved: 'Group removed for {name}',
+    groupsAutoAssigned: 'Assignment done: {count} group{s} — existing assignments kept',
+    groupCountChanged: 'Number of groups: {count}',
+  },
   csv: {
     name: 'Name',
     email: 'Email',

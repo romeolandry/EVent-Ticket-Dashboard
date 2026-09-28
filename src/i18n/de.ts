@@ -122,6 +122,13 @@ export default {
     cancel: 'Abbrechen',
     save: 'Speichern',
   },
+  notify: {
+    dismiss: 'Benachrichtigung schließen',
+    groupAssigned: '{name} → Gruppe {n}',
+    groupRemoved: 'Gruppe entfernt für {name}',
+    groupsAutoAssigned: 'Zuweisung fertig: {count} Gruppe{s} — bestehende Zuweisungen bleiben',
+    groupCountChanged: 'Anzahl der Gruppen: {count}',
+  },
   csv: {
     name: 'Name',
     email: 'E-Mail',

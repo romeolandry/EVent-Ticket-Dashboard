@@ -3,11 +3,15 @@
  *
  * - POST /api/auth { email }  → session si l'email est autorisé
  * - GET/PUT /api/access-list  → superuser uniquement
+ * - GET/PUT /api/groups?event → groupes de travail partagés (session requise)
  * - GET  /config.js           → config runtime générée depuis l'environnement
  * - GET  /healthz
  *
  * La liste des emails autorisés est stockée dans DATA_DIR/allowed-emails.json
- * (hors racine web : jamais servie, jamais envoyée aux visiteurs).
+ * (hors racine web : jamais servie, jamais envoyée aux visiteurs). Les groupes
+ * de travail vivent dans la base SQLite DATA_DIR/groups.db (table
+ * attendee_group : une ligne par participant, réécrite à chaque changement) —
+ * partagés entre tous les clients connectés.
  */
 import { createServer } from 'node:http'
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises'
@@ -21,6 +25,8 @@ import {
   normalizeEmail,
   sanitizeEmailList,
 } from './accessList.mjs'
+import { groupsFileName, sanitizeGroupState } from './groupsStore.mjs'
+import { isValidEventId, openGroupsDb, readGroupState, saveGroupState } from './groupsDb.mjs'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const HOST = process.env.HOST ?? '0.0.0.0'
@@ -88,17 +94,17 @@ function json(res, status, body) {
   res.end(payload)
 }
 
-async function readRawBody(req) {
+async function readRawBody(req, maxBytes = 10_000) {
   let body = ''
   for await (const chunk of req) {
     body += chunk
-    if (body.length > 10_000) throw new Error('payload trop grand')
+    if (body.length > maxBytes) throw new Error('payload trop grand')
   }
   return body
 }
 
-async function readBody(req) {
-  return JSON.parse((await readRawBody(req)) || '{}')
+async function readBody(req, maxBytes = 10_000) {
+  return JSON.parse((await readRawBody(req, maxBytes)) || '{}')
 }
 
 async function handleAuth(req, res) {
@@ -147,6 +153,50 @@ async function handleAccessList(req, res) {
   }
   await saveAllowedEmails(cleaned)
   return json(res, 200, { emails: cleaned })
+}
+
+const groupsDb = openGroupsDb(DATA_DIR)
+
+async function loadGroups(eventId) {
+  const state = readGroupState(groupsDb, eventId)
+  if (state.saved) return { count: state.count, map: state.map }
+  // Migration unique depuis l'ancien stockage JSON (groups-<eventId>.json)
+  try {
+    const legacy = JSON.parse(await readFile(join(DATA_DIR, groupsFileName(eventId)), 'utf8'))
+    const migrated = sanitizeGroupState(legacy)
+    saveGroupState(groupsDb, eventId, migrated)
+    return migrated
+  } catch {
+    return { count: state.count, map: state.map }
+  }
+}
+
+/**
+ * Groupes de travail partagés entre tous les clients connectés : tout
+ * utilisateur authentifié peut lire et écrire l'état d'un événement.
+ * Chaque PUT écrit le groupe de chaque participant dans SQLite (colonne
+ * attendee_group.group_number).
+ */
+async function handleGroups(req, res, url) {
+  const session = sessionFrom(req)
+  if (!session) return json(res, 401, { error: 'unauthorized' })
+
+  const eventId = isValidEventId(url.searchParams.get('event'))
+  if (eventId == null) return json(res, 400, { error: 'invalid_event' })
+
+  if (req.method === 'GET') {
+    return json(res, 200, await loadGroups(eventId))
+  }
+
+  let state
+  try {
+    // Un état de groupes peut dépasser 10 Ko (gros événements)
+    state = sanitizeGroupState(await readBody(req, 1_000_000))
+  } catch {
+    return json(res, 400, { error: 'invalid_body' })
+  }
+  saveGroupState(groupsDb, eventId, state)
+  return json(res, 200, state)
 }
 
 async function handleLogout(req, res) {
@@ -230,6 +280,9 @@ const server = createServer(async (req, res) => {
     if (pathname === '/api/logout' && req.method === 'POST') return await handleLogout(req, res)
     if (pathname === '/api/access-list' && (req.method === 'GET' || req.method === 'PUT')) {
       return await handleAccessList(req, res)
+    }
+    if (pathname === '/api/groups' && (req.method === 'GET' || req.method === 'PUT')) {
+      return await handleGroups(req, res, url)
     }
     if (pathname.startsWith('/wp-api/')) return await handleWpProxy(req, res, url)
     if (req.method === 'GET') return await serveStatic(req, res, pathname)

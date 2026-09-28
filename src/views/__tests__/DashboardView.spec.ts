@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import DashboardView from '@/views/DashboardView.vue'
 import { useAttendeesStore } from '@/stores/attendees'
+import { useNotificationsStore } from '@/stores/notifications'
 import { createTestI18n } from '@/test/i18n'
 import type { Attendee } from '@/types/tickets'
 
@@ -13,6 +14,11 @@ function mountView() {
 vi.mock('@/services/wpApi', () => ({
   fetchEvents: vi.fn<() => Promise<never[]>>(async () => []),
   fetchAttendees: vi.fn<() => Promise<never[]>>(async () => []),
+}))
+
+vi.mock('@/services/groupsApi', () => ({
+  fetchGroups: vi.fn<(eventId: number) => Promise<null>>(async () => null),
+  saveGroups: vi.fn<(eventId: number, state: unknown) => Promise<void>>(async () => undefined),
 }))
 
 function makeAttendee(id: number, name: string): Attendee {
@@ -234,5 +240,45 @@ describe('DashboardView', () => {
     await button!.trigger('click')
 
     expect(wrapper.text()).toContain('Configuration d’impression')
+  })
+
+  it('notifie à chaque changement de groupe (assignation et retrait)', async () => {
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = [makeAttendee(1, 'Alice Dupont'), makeAttendee(2, 'Bob Martin')]
+    store.selectedEventId = 1262
+    await wrapper.vm.$nextTick()
+    const notifications = useNotificationsStore()
+
+    const select = wrapper.findAll('tbody tr')[0]!.find('select.group-select')
+    await select.setValue('2')
+
+    expect(store.groupMap[1]).toBe(2)
+    expect(notifications.notifications.map((n) => n.message)).toContain('Alice Dupont → groupe 2')
+
+    await select.setValue('')
+    expect(notifications.notifications.map((n) => n.message)).toContain(
+      'Groupe retiré pour Alice Dupont',
+    )
+  })
+
+  it('notifie la répartition automatique et le changement du nombre de groupes', async () => {
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = [makeAttendee(1, 'Alice Dupont'), makeAttendee(2, 'Bob Martin')]
+    store.selectedEventId = 1262
+    await wrapper.vm.$nextTick()
+    const notifications = useNotificationsStore()
+
+    await wrapper.findAll('button').find((b) => b.text() === 'Impression')!.trigger('click')
+    await wrapper.find('#group-count').setValue(2)
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === 'Répartir automatiquement')!
+      .trigger('click')
+
+    const messages = notifications.notifications.map((n) => n.message)
+    expect(messages).toContain('Nombre de groupes : 2')
+    expect(messages.some((m) => m.startsWith('Répartition terminée'))).toBe(true)
   })
 })

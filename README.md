@@ -16,8 +16,13 @@ Node server** (backend) shipping in a single Docker image.
   through the UI locale).
 - **Check-in / check-out** per attendee (real `PATCH` against the WP API).
 - **Work groups**: assign a group number per attendee (manual select or
-  even round-robin auto-assign), filter by group. Badges can only be printed
-  for attendees who are checked in **and** have a group.
+  auto-assign that keeps existing assignments and only balances unassigned
+  attendees), filter by group. Assignments are persisted **server-side in a
+  SQLite database** (`/data/groups.db`, built-in `node:sqlite` — one row per
+  attendee in table `attendee_group`, rewritten on every change) and shared
+  by all connected clients; `localStorage` is only an offline fallback.
+  Badges can only be printed for attendees who are checked in **and** have a
+  group.
 - **Badge printing**: configurable print window — event title (overridable),
   email, ticket, group, and any custom fields.
 - **Statistics popup**: children-by-age aggregation (parses free-text German
@@ -55,6 +60,7 @@ GET  /api/access-list        →    superuser only
 | POST | `/api/auth` | — | Log in with an email (`{ email }` → `{ token, email, isSuperuser }`) |
 | POST | `/api/logout` | session | Destroy the session |
 | GET/PUT | `/api/access-list` | **superuser** | Read / replace the allowed-email list |
+| GET/PUT | `/api/groups?event=<id>` | session | Read / replace the shared work-group state of an event |
 | GET/PATCH/… | `/wp-api/*` | session | Proxied to `VITE_WP_API_URL/wp-json/*` with Basic auth added |
 | GET | `/healthz` | — | Health check |
 
