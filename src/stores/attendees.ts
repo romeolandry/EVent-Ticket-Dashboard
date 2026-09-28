@@ -99,12 +99,27 @@ export const useAttendeesStore = defineStore('attendees', () => {
     }
   }
 
-  function setGroup(attendeeId: number, group: number | null) {
+  function isReservedGroup(group: number): boolean {
+    return group === EXCLUDED_GROUP && groupCount.value > 1 && attendees.value.some(isExcluded)
+  }
+
+  /**
+   * Assignation manuelle. Retourne false (sans rien changer) quand la règle
+   * du groupe réservé serait violée : le groupe 1 à un non-exclus quand la
+   * réservation est active, ou un autre groupe que 1 à un exclu.
+   */
+  function setGroup(attendeeId: number, group: number | null): boolean {
+    const attendee = attendees.value.find((a) => a.id === attendeeId)
+    if (group != null && attendee) {
+      if (isExcluded(attendee) && group !== EXCLUDED_GROUP) return false
+      if (!isExcluded(attendee) && isReservedGroup(group)) return false
+    }
     const next = { ...groupMap.value }
     if (group == null) delete next[attendeeId]
     else next[attendeeId] = group
     groupMap.value = next
     persistGroups()
+    return true
   }
 
   function setGroupCount(count: number) {
@@ -115,8 +130,16 @@ export const useAttendeesStore = defineStore('attendees', () => {
     persistGroups()
   }
 
+  function isExcluded(attendee: Attendee): boolean {
+    return excludedEmails.value.includes(attendee.email.trim().toLowerCase())
+  }
+
+  /** Groupe réservé aux emails exclus (par défaut). */
+  const EXCLUDED_GROUP = 1
+
   /**
-   * Ajoute un email à la liste d'exclusion de la répartition automatique.
+   * Ajoute un email à la liste d'exclusion : le groupe 1 lui est réservé et
+   * assigné immédiatement aux participants correspondants.
    * Retourne false si l'email est vide, invalide ou déjà présent.
    */
   function addGroupExclusion(email: string): boolean {
@@ -124,12 +147,29 @@ export const useAttendeesStore = defineStore('attendees', () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normalized)) return false
     if (excludedEmails.value.includes(normalized)) return false
     excludedEmails.value = [...excludedEmails.value, normalized]
+    const next = { ...groupMap.value }
+    for (const attendee of attendees.value) {
+      if (attendee.email.trim().toLowerCase() === normalized) {
+        next[attendee.id] = EXCLUDED_GROUP
+      }
+    }
+    groupMap.value = next
     persistGroups()
     return true
   }
 
   function removeGroupExclusion(email: string) {
-    excludedEmails.value = excludedEmails.value.filter((e) => e !== email.trim().toLowerCase())
+    const normalized = email.trim().toLowerCase()
+    excludedEmails.value = excludedEmails.value.filter((e) => e !== normalized)
+    // Libère le siège réservé (groupe 1) — une assignation manuelle autre
+    // que le groupe réservé est respectée.
+    const next = { ...groupMap.value }
+    for (const attendee of attendees.value) {
+      if (attendee.email.trim().toLowerCase() === normalized && next[attendee.id] === EXCLUDED_GROUP) {
+        delete next[attendee.id]
+      }
+    }
+    groupMap.value = next
     persistGroups()
   }
 
@@ -137,26 +177,41 @@ export const useAttendeesStore = defineStore('attendees', () => {
    * Répartit les participants sur les groupes : les assignations existantes
    * sont conservées (un participant garde son groupe d'une session à l'autre),
    * seuls les participants sans groupe sont répartis, en comblant à chaque
-   * fois le groupe le moins rempli. Les participants dont l'email figure
-   * dans excludedEmails ne reçoivent jamais de groupe automatiquement.
+   * fois le groupe le moins rempli.
+   * Dès qu'au moins un participant présent est exclu, le groupe 1 est
+   * **réservé aux exclus** (ils le reçoivent par défaut) et les autres sont
+   * répartis sur les groupes 2..N ; un non-exclus encore en groupe 1 est
+   * déplacé. Sans exclu présent, les groupes 1..N sont utilisés.
    */
   function autoAssignGroups() {
-    const excluded = new Set(excludedEmails.value)
+    const anyExcluded = attendees.value.some(isExcluded)
+    const reserved = anyExcluded && groupCount.value > 1
+    const firstRegularGroup = reserved ? EXCLUDED_GROUP + 1 : EXCLUDED_GROUP
+
     const map: Record<number, number> = {}
     const sizes = Array.from({ length: groupCount.value }, () => 0)
     for (const attendee of attendees.value) {
-      if (excluded.has(attendee.email.trim().toLowerCase())) continue
+      if (isExcluded(attendee)) {
+        map[attendee.id] = EXCLUDED_GROUP
+        sizes[EXCLUDED_GROUP - 1] = (sizes[EXCLUDED_GROUP - 1] ?? 0) + 1
+        continue
+      }
       const existing = groupMap.value[attendee.id]
-      if (existing != null && existing >= 1 && existing <= groupCount.value) {
+      if (
+        existing != null &&
+        existing >= firstRegularGroup &&
+        existing <= groupCount.value
+      ) {
         map[attendee.id] = existing
         sizes[existing - 1] = (sizes[existing - 1] ?? 0) + 1
       }
     }
     for (const attendee of attendees.value) {
-      if (excluded.has(attendee.email.trim().toLowerCase())) continue
       if (map[attendee.id] != null) continue
-      let min = 0
-      for (let i = 1; i < sizes.length; i++) if ((sizes[i] ?? 0) < (sizes[min] ?? 0)) min = i
+      let min = firstRegularGroup - 1
+      for (let i = firstRegularGroup; i < sizes.length; i++) {
+        if ((sizes[i] ?? 0) < (sizes[min] ?? 0)) min = i
+      }
       map[attendee.id] = min + 1
       sizes[min] = (sizes[min] ?? 0) + 1
     }

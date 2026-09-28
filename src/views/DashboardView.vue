@@ -124,7 +124,10 @@ function onSavePrinterConfig(config: BadgeConfig) {
 }
 
 function onSetGroup(attendeeId: number, group: number | null) {
-  attendeesStore.setGroup(attendeeId, group)
+  if (!attendeesStore.setGroup(attendeeId, group)) {
+    notifications.notify(t('notify.groupReserved'))
+    return
+  }
   const name = attendees.value.find((a) => a.id === attendeeId)?.name ?? String(attendeeId)
   notifications.notify(
     group == null
@@ -366,6 +369,7 @@ function printBadge(attendee: Attendee) {
         :pending-action-id="pendingActionId"
         :groups="groupMap"
         :group-count="groupCount"
+        :excluded-emails="excludedEmails"
         @check-in="attendeesStore.updateCheckIn($event, true)"
         @check-out="attendeesStore.updateCheckIn($event, false)"
         @print="printBadge"

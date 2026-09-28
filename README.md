@@ -21,8 +21,10 @@ Node server** (backend) shipping in a single Docker image.
   SQLite database** (`/data/groups.db`, built-in `node:sqlite` — one row per
   attendee in table `attendee_group`, rewritten on every change) and shared
   by all connected clients; `localStorage` is only an offline fallback.
-  An **exclusion list** per event (table `event_group_exclusion`) keeps
-  listed emails out of auto-assign (manual assignment stays possible).
+  An **exclusion list** per event (table `event_group_exclusion`) reserves
+  **group 1** for listed emails: they are assigned there by default and
+  auto-assign distributes everyone else over groups 2..N (manual assignment
+  stays possible). Excluded attendees show a ⊘ icon next to their name.
   Badges can only be printed for attendees who are checked in **and** have a
   group.
 - **Badge printing**: configurable print window — event title (overridable),

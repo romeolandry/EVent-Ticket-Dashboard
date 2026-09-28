@@ -48,6 +48,7 @@ export default {
     checkOut: 'Check-out',
     printBadge: 'Print badge',
     group: 'Group',
+    excludedFromAutoAssign: 'Excluded from auto-assign',
     printNeedsGroup: 'Assign a group before printing the badge',
   },
   pagination: {
@@ -122,7 +123,8 @@ export default {
     groups: 'Work groups',
     groupCount: 'Number of groups',
     autoAssign: 'Auto-assign',
-    groupHint: 'Each attendee needs a group before the badge can be printed.',
+    groupHint:
+      'Each attendee needs a group before the badge can be printed. Group 1 is reserved for excluded emails.',
     excludedTitle: 'Emails excluded from auto-assign',
     excludedPlaceholder: "email{'@'}example.com",
     addExcluded: 'Exclude',
@@ -142,6 +144,7 @@ export default {
     exclusionRemoved: '{email} is no longer excluded',
     settingsSaved: 'Print settings shared with all users',
     settingsSaveError: 'Could not share print settings',
+    groupReserved: 'Group 1 is reserved for excluded emails',
   },
   csv: {
     name: 'Name',

@@ -9,6 +9,7 @@ function mountTable(props: {
   loading?: boolean
   groups?: Record<number, number>
   groupCount?: number
+  excludedEmails?: string[]
 }) {
   return mount(AttendeeTable, { props, global: { plugins: [createTestI18n()] } })
 }
@@ -39,6 +40,49 @@ describe('AttendeeTable', () => {
     expect(wrapper.findAll('tbody tr')).toHaveLength(2)
     expect(wrapper.text()).toContain('Alice Dupont')
     expect(wrapper.text()).toContain('VIP')
+  })
+
+  it('affiche l’icône d’exclusion sur la ligne du participant exclu', () => {
+    const wrapper = mountTable({ attendees, excludedEmails: ['BOB@example.com'] })
+
+    const marks = wrapper.findAll('.excluded-mark')
+    expect(marks).toHaveLength(1)
+    expect(marks[0]!.attributes('aria-label')).toBe('Exclu de la répartition automatique')
+    // La marque est sur la ligne de Bob, pas celle d'Alice
+    const bobRow = wrapper.findAll('tbody tr').find((r) => r.text().includes('Bob Martin'))
+    expect(bobRow!.find('.excluded-mark').exists()).toBe(true)
+  })
+
+  it('le groupe 1 n’est pas attribuable manuellement quand il est réservé', () => {
+    const wrapper = mountTable({
+      attendees,
+      groups: { 11: 1 },
+      groupCount: 3,
+      excludedEmails: ['bob@example.com'],
+    })
+
+    // Alice (non exclue) : options 2 et 3 uniquement, jamais 1
+    const aliceRow = wrapper.findAll('tbody tr').find((r) => r.text().includes('Alice Dupont'))!
+    const aliceOptions = aliceRow.findAll('select.group-select option').map((o) => o.text())
+    expect(aliceOptions).toEqual(['—', '2', '3'])
+
+    // Bob (exclu) : pastille fixe « 1 », aucun sélecteur
+    const bobRow = wrapper.findAll('tbody tr').find((r) => r.text().includes('Bob Martin'))!
+    expect(bobRow.find('select.group-select').exists()).toBe(false)
+    expect(bobRow.find('.group-fixed').text()).toBe('1')
+  })
+
+  it('le groupe 1 reste attribuable manuellement sans participant exclu', () => {
+    const wrapper = mountTable({ attendees, groupCount: 3 })
+
+    const firstRow = wrapper.findAll('tbody tr')[0]!
+    const options = firstRow.findAll('select.group-select option').map((o) => o.text())
+    expect(options).toEqual(['—', '1', '2', '3'])
+  })
+
+  it('aucune icône d’exclusion sans liste d’exclusion', () => {
+    const wrapper = mountTable({ attendees })
+    expect(wrapper.find('.excluded-mark').exists()).toBe(false)
   })
 
   it('génère dynamiquement les colonnes des champs personnalisés', () => {

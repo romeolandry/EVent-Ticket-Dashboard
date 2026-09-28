@@ -46,6 +46,7 @@ export default {
     checkOut: 'Check-out',
     printBadge: 'Print Badge',
     group: 'Groupe',
+    excludedFromAutoAssign: 'Exclu de la répartition automatique',
     printNeedsGroup: 'Assignez un groupe avant d’imprimer le badge',
   },
   pagination: {
@@ -121,7 +122,8 @@ export default {
     groups: 'Groupes de travail',
     groupCount: 'Nombre de groupes',
     autoAssign: 'Répartir automatiquement',
-    groupHint: 'Chaque participant doit avoir un groupe avant l’impression du badge.',
+    groupHint:
+      'Chaque participant doit avoir un groupe avant l’impression du badge. Le groupe 1 est réservé aux emails exclus.',
     excludedTitle: 'Emails exclus de la répartition automatique',
     excludedPlaceholder: "email{'@'}exemple.com",
     addExcluded: 'Exclure',
@@ -142,6 +144,7 @@ export default {
     exclusionRemoved: '{email} n’est plus exclu',
     settingsSaved: 'Paramètres d’impression partagés avec tous les utilisateurs',
     settingsSaveError: 'Échec du partage des paramètres d’impression',
+    groupReserved: 'Le groupe 1 est réservé aux emails exclus',
   },
   csv: {
     name: 'Nom',

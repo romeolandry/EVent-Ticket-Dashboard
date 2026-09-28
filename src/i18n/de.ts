@@ -48,6 +48,7 @@ export default {
     checkOut: 'Check-out',
     printBadge: 'Badge drucken',
     group: 'Gruppe',
+    excludedFromAutoAssign: 'Von der automatischen Zuweisung ausgeschlossen',
     printNeedsGroup: 'Vor dem Drucken eine Gruppe zuweisen',
   },
   pagination: {
@@ -123,7 +124,8 @@ export default {
     groups: 'Arbeitsgruppen',
     groupCount: 'Anzahl der Gruppen',
     autoAssign: 'Automatisch zuweisen',
-    groupHint: 'Jeder Teilnehmer braucht eine Gruppe, bevor das Badge gedruckt werden kann.',
+    groupHint:
+      'Jeder Teilnehmer braucht eine Gruppe, bevor das Badge gedruckt werden kann. Gruppe 1 ist für ausgeschlossene E-Mails reserviert.',
     excludedTitle: 'Von der automatischen Zuweisung ausgeschlossene E-Mails',
     excludedPlaceholder: "email{'@'}beispiel.de",
     addExcluded: 'Ausschließen',
@@ -143,6 +145,7 @@ export default {
     exclusionRemoved: '{email} ist nicht mehr ausgeschlossen',
     settingsSaved: 'Druckeinstellungen für alle Benutzer geteilt',
     settingsSaveError: 'Druckeinstellungen konnten nicht geteilt werden',
+    groupReserved: 'Gruppe 1 ist für ausgeschlossene E-Mails reserviert',
   },
   csv: {
     name: 'Name',

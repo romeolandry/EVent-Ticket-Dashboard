@@ -193,18 +193,82 @@ describe('stores/attendees — groupes de travail', () => {
     )
   })
 
-  it('autoAssignGroups exclut les emails listés de la répartition', async () => {
+  it('le groupe 1 est réservé aux exclus lors de la répartition', async () => {
     const store = useAttendeesStore()
     await store.loadAttendees(1262)
     store.setGroupCount(2)
     store.addGroupExclusion('bob@wach-auf.com')
+    // L'ajout à l'exclusion assigne déjà le groupe 1 par défaut
+    expect(store.groupMap[2]).toBe(1)
 
     store.autoAssignGroups()
 
-    // Bob (exclu) ne reçoit aucun groupe ; les autres sont répartis
-    expect(store.groupMap[2]).toBeUndefined()
-    expect(store.groupMap[1]).toBe(1)
+    // Bob (exclu) reste dans le groupe réservé 1 ; Alice et Claire vont en 2
+    expect(store.groupMap[2]).toBe(1)
+    expect(store.groupMap[1]).toBe(2)
     expect(store.groupMap[3]).toBe(2)
+  })
+
+  it('un non-exclus en groupe 1 est déplacé vers un groupe libre', async () => {
+    const store = useAttendeesStore()
+    await store.loadAttendees(1262)
+    store.setGroupCount(3)
+    store.setGroup(1, 1) // Alice assignée manuellement au groupe 1
+    store.addGroupExclusion('bob@wach-auf.com')
+
+    store.autoAssignGroups()
+
+    // Le groupe 1 étant réservé, Alice bascule ; Claire comble le plus vide
+    expect(store.groupMap[1]).toBe(2)
+    expect(store.groupMap[2]).toBe(1)
+    expect(store.groupMap[3]).toBe(3)
+  })
+
+  it('sans participant exclu, la répartition utilise aussi le groupe 1', async () => {
+    const store = useAttendeesStore()
+    await store.loadAttendees(1262)
+    store.setGroupCount(2)
+
+    store.autoAssignGroups()
+
+    expect([store.groupMap[1], store.groupMap[2], store.groupMap[3]]).toEqual([1, 2, 1])
+  })
+
+  it('removeGroupExclusion libère le siège réservé (groupe 1)', async () => {
+    const store = useAttendeesStore()
+    await store.loadAttendees(1262)
+    store.addGroupExclusion('bob@wach-auf.com')
+    expect(store.groupMap[2]).toBe(1)
+
+    store.removeGroupExclusion('bob@wach-auf.com')
+
+    expect(store.excludedEmails).toEqual([])
+    expect(store.groupMap[2]).toBeUndefined()
+  })
+
+  it('setGroup refuse le groupe 1 à un non-exclus quand il est réservé', async () => {
+    const store = useAttendeesStore()
+    await store.loadAttendees(1262)
+    store.setGroupCount(3)
+    store.addGroupExclusion('bob@wach-auf.com')
+
+    // Alice (non exclue) ne peut pas prendre le groupe 1…
+    expect(store.setGroup(1, 1)).toBe(false)
+    expect(store.groupMap[1]).toBeUndefined()
+    // …mais le groupe 2 reste attribuable
+    expect(store.setGroup(1, 2)).toBe(true)
+    expect(store.groupMap[1]).toBe(2)
+    // Bob (exclu) ne peut pas quitter le groupe réservé
+    expect(store.setGroup(2, 3)).toBe(false)
+    expect(store.groupMap[2]).toBe(1)
+  })
+
+  it('setGroup permet le groupe 1 quand aucun exclu n’est présent', async () => {
+    const store = useAttendeesStore()
+    await store.loadAttendees(1262)
+
+    expect(store.setGroup(1, 1)).toBe(true)
+    expect(store.groupMap[1]).toBe(1)
   })
 
   it('recharge les groupes sauvegardés au chargement de l’événement', async () => {

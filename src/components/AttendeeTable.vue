@@ -19,6 +19,8 @@ const props = withDefaults(
     groups?: Record<number, number>
     /** Nombre de groupes disponibles à l'assignation. */
     groupCount?: number
+    /** Emails exclus de la répartition automatique (marqueur sur la ligne). */
+    excludedEmails?: string[]
   }>(),
   {
     columnsOf: undefined,
@@ -26,6 +28,7 @@ const props = withDefaults(
     pendingActionId: null,
     groups: () => ({}),
     groupCount: 4,
+    excludedEmails: () => [],
   },
 )
 
@@ -45,6 +48,31 @@ const dynamicColumns = computed<string[]>(() => {
     }
   }
   return [...keys]
+})
+
+const excludedSet = computed(
+  () => new Set(props.excludedEmails.map((email) => email.trim().toLowerCase())),
+)
+
+/** Vrai si l'email du participant est exclu de la répartition automatique. */
+function isExcluded(attendee: Attendee): boolean {
+  return excludedSet.value.has(attendee.email.trim().toLowerCase())
+}
+
+/**
+ * Le groupe 1 est réservé aux exclus dès qu'un participant chargé est exclu
+ * (columnsOf = toutes pages confondues). Il est alors hors des choix
+ * d'assignation manuelle.
+ */
+const EXCLUDED_GROUP = 1
+const reserved = computed(
+  () =>
+    props.groupCount > EXCLUDED_GROUP &&
+    (props.columnsOf ?? props.attendees).some(isExcluded),
+)
+const selectableGroups = computed(() => {
+  const start = reserved.value ? EXCLUDED_GROUP + 1 : EXCLUDED_GROUP
+  return Array.from({ length: props.groupCount - start + 1 }, (_, i) => start + i)
 })
 </script>
 
@@ -69,7 +97,17 @@ const dynamicColumns = computed<string[]>(() => {
         </thead>
         <tbody>
           <tr v-for="attendee in attendees" :key="attendee.id">
-            <td class="name">{{ attendee.name }}</td>
+            <td class="name">
+              {{ attendee.name }}
+              <span
+                v-if="isExcluded(attendee)"
+                class="excluded-mark"
+                role="img"
+                :title="t('table.excludedFromAutoAssign')"
+                :aria-label="t('table.excludedFromAutoAssign')"
+                >⊘</span
+              >
+            </td>
             <td>{{ attendee.email }}</td>
             <td>{{ attendee.ticket }}</td>
             <td>
@@ -81,7 +119,16 @@ const dynamicColumns = computed<string[]>(() => {
               {{ attendee.fields[column] ?? '' }}
             </td>
             <td>
+              <!-- Groupe réservé : pastille fixe, non modifiable -->
+              <span
+                v-if="isExcluded(attendee)"
+                class="group-fixed"
+                :title="t('table.excludedFromAutoAssign')"
+              >
+                {{ groups[attendee.id] ?? 1 }}
+              </span>
               <select
+                v-else
                 class="group-select"
                 :class="{ assigned: groups[attendee.id] != null }"
                 :value="groups[attendee.id] ?? ''"
@@ -97,7 +144,7 @@ const dynamicColumns = computed<string[]>(() => {
                 "
               >
                 <option value="">—</option>
-                <option v-for="n in groupCount" :key="n" :value="n">{{ n }}</option>
+                <option v-for="n in selectableGroups" :key="n" :value="n">{{ n }}</option>
               </select>
             </td>
             <td class="actions">
@@ -188,6 +235,14 @@ tbody tr:hover {
   white-space: nowrap;
 }
 
+.excluded-mark {
+  display: inline-block;
+  margin-left: 0.4rem;
+  color: #b45309;
+  font-size: 0.85rem;
+  vertical-align: middle;
+}
+
 .badge {
   display: inline-block;
   padding: 0.15rem 0.6rem;
@@ -259,6 +314,16 @@ tbody tr:hover {
 
 .group-select.assigned {
   border-color: var(--color-accent);
+  font-weight: 700;
+}
+
+.group-fixed {
+  display: inline-block;
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, #f59e0b 15%, transparent);
+  color: #b45309;
+  font-size: 0.82rem;
   font-weight: 700;
 }
 

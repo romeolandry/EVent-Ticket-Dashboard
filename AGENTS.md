@@ -54,11 +54,19 @@ Event Tickets Plus).
   (`etp-groups:<eventId>`) n'est plus qu'un cache hors-ligne.
   `autoAssignGroups` conserve les groupes existants et ne répartit que les
   participants sans groupe (comble le groupe le moins rempli).
-- Liste d'exclusion par événement (table `event_group_exclusion`) :
-  les emails listés ne reçoivent **jamais** de groupe via la répartition
-  automatique (l'assignation manuelle reste possible). Gérée dans la
-  fenêtre « Impression » (champ autocomplete alimenté par les emails des
-  participants), toast à chaque ajout/retrait.
+- Liste d'exclusion par événement (table `event_group_exclusion`) : dès
+  qu'un participant exclu est présent, **le groupe 1 est réservé** — les
+  exclus y sont assignés par défaut (à l'ajout de l'email et lors de la
+  répartition), et `autoAssignGroups` répartit les autres sur les groupes
+  2..N (un non-exclus en groupe 1 est déplacé). Retirer un email de la
+  liste libère son siège en groupe 1. Le groupe 1 n'est **pas attribuable
+  manuellement** (`setGroup` refuse et le sélecteur n'offre plus le
+  groupe 1 ; un exclu voit une pastille fixe « 1 » à la place) — les
+  assignations manuelles 2..N sont respectées. Gérée dans la fenêtre « Impression »
+  (champ autocomplete alimenté par les emails des participants), toast à
+  chaque ajout/retrait. Les participants exclus sont marqués d'une icône ⊘
+  à côté de leur nom dans le tableau (`AttendeeTable`, prop
+  `excludedEmails`).
 - Notifications : store Pinia `src/stores/notifications.ts` + composant
   `ToastList.vue` monté dans `App.vue` (auto-dismiss 4 s, aria-live).
 - Impression du badge possible uniquement si le participant est
