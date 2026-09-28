@@ -155,6 +155,73 @@ describe('DashboardView', () => {
     expect(wrapper.findAll('tbody tr')).toHaveLength(2)
   })
 
+  it('pagine la liste par 25 participants', async () => {
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = Array.from({ length: 30 }, (_, i) => makeAttendee(i + 1, `Personne ${i + 1}`))
+    store.selectedEventId = 1262
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('tbody tr')).toHaveLength(25)
+    expect(wrapper.text()).toContain('Page 1 / 2 — 30 participants')
+
+    const nextButton = wrapper.findAll('button').find((b) => b.text() === 'Suivant')
+    expect(nextButton).toBeDefined()
+    await nextButton!.trigger('click')
+
+    expect(wrapper.findAll('tbody tr')).toHaveLength(5)
+    expect(wrapper.text()).toContain('Page 2 / 2 — 30 participants')
+
+    const prevButton = wrapper.findAll('button').find((b) => b.text() === 'Précédent')
+    await prevButton!.trigger('click')
+    expect(wrapper.findAll('tbody tr')).toHaveLength(25)
+  })
+
+  it("n'affiche pas la pagination sous 25 participants", async () => {
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = [makeAttendee(1, 'Alice Dupont'), makeAttendee(2, 'Bob Martin')]
+    store.selectedEventId = 1262
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('button').find((b) => b.text() === 'Suivant')).toBeUndefined()
+    expect(wrapper.text()).not.toContain('Page 1 /')
+  })
+
+  it('revient en page 1 quand un filtre change', async () => {
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = Array.from({ length: 30 }, (_, i) =>
+      makeAttendee(i + 1, i === 0 ? 'Zoé Zeule' : `Personne ${i + 1}`),
+    )
+    store.selectedEventId = 1262
+    await wrapper.vm.$nextTick()
+
+    const nextButton = wrapper.findAll('button').find((b) => b.text() === 'Suivant')
+    await nextButton!.trigger('click')
+    expect(wrapper.text()).toContain('Page 2 / 2')
+
+    await wrapper.find('input[type="search"]').setValue('zoé')
+
+    expect(wrapper.findAll('tbody tr')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Zoé Zeule')
+    expect(wrapper.text()).not.toContain('Page 2 / 2')
+  })
+
+  it('garde les colonnes dynamiques de toutes les pages', async () => {
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = [
+      ...Array.from({ length: 25 }, (_, i) => makeAttendee(i + 1, `Personne ${i + 1}`)),
+      { ...makeAttendee(26, 'Alice Champ'), fields: { Allergies: 'Arachides' } },
+    ]
+    store.selectedEventId = 1262
+    await wrapper.vm.$nextTick()
+
+    // Page 1 : la colonne d'un champ présent uniquement en page 2 reste visible
+    expect(wrapper.findAll('thead th').map((th) => th.text())).toContain('Allergies')
+  })
+
   it('le bouton Impression ouvre la configuration', async () => {
     const wrapper = mountView()
     const store = useAttendeesStore()

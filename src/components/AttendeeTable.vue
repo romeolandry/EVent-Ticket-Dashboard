@@ -9,6 +9,9 @@ const { t } = useI18n()
 const props = withDefaults(
   defineProps<{
     attendees: Attendee[]
+    /** Liste complète (toutes pages confondues) servant au calcul des colonnes
+     * dynamiques — utile quand `attendees` n'est qu'une page. */
+    columnsOf?: Attendee[]
     loading?: boolean
     /** Id du participant dont une action (check-in/out) est en cours. */
     pendingActionId?: number | null
@@ -17,7 +20,13 @@ const props = withDefaults(
     /** Nombre de groupes disponibles à l'assignation. */
     groupCount?: number
   }>(),
-  { loading: false, pendingActionId: null, groups: () => ({}), groupCount: 4 },
+  {
+    columnsOf: undefined,
+    loading: false,
+    pendingActionId: null,
+    groups: () => ({}),
+    groupCount: 4,
+  },
 )
 
 defineEmits<{
@@ -30,7 +39,7 @@ defineEmits<{
 /** Colonnes dynamiques : union des clés des champs personnalisés de tous les participants. */
 const dynamicColumns = computed<string[]>(() => {
   const keys = new Set<string>()
-  for (const attendee of props.attendees) {
+  for (const attendee of props.columnsOf ?? props.attendees) {
     for (const key of Object.keys(attendee.fields)) {
       keys.add(key)
     }

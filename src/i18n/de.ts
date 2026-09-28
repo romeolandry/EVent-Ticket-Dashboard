@@ -50,6 +50,12 @@ export default {
     group: 'Gruppe',
     printNeedsGroup: 'Vor dem Drucken eine Gruppe zuweisen',
   },
+  pagination: {
+    label: 'Teilnehmer-Paginierung',
+    previous: 'Zurück',
+    next: 'Weiter',
+    info: 'Seite {page} / {pages} — {total} Teilnehmer',
+  },
   stats: {
     title: 'Statistiken',
     close: 'Schließen',

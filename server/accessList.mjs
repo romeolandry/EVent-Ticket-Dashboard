@@ -14,21 +14,30 @@ export function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normalized)
 }
 
+/** SUPERUSER_EMAIL accepte plusieurs emails séparés par des virgules. */
+export function parseSuperuserEmails(superuserEmail) {
+  return String(superuserEmail ?? '')
+    .split(',')
+    .map(normalizeEmail)
+    .filter(Boolean)
+}
+
 /**
- * Un visiteur est autorisé si son email est le superuser OU figure dans la
+ * Un visiteur est autorisé si son email est un superuser OU figure dans la
  * liste des emails acceptés (comparaison normalisée, insensible à la casse).
  */
 export function isAllowedEmail(email, { superuserEmail, allowedEmails }) {
   const normalized = normalizeEmail(email)
   if (!normalized) return false
-  if (normalizeEmail(superuserEmail) && normalized === normalizeEmail(superuserEmail)) {
+  if (parseSuperuserEmails(superuserEmail).includes(normalized)) {
     return true
   }
   return (allowedEmails ?? []).map(normalizeEmail).includes(normalized)
 }
 
 export function isSuperuserEmail(email, superuserEmail) {
-  return normalizeEmail(email) !== '' && normalizeEmail(email) === normalizeEmail(superuserEmail)
+  const normalized = normalizeEmail(email)
+  return normalized !== '' && parseSuperuserEmails(superuserEmail).includes(normalized)
 }
 
 /** Nettoie une liste d'emails : normalise, valide, déduplique. */

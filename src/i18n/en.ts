@@ -50,6 +50,12 @@ export default {
     group: 'Group',
     printNeedsGroup: 'Assign a group before printing the badge',
   },
+  pagination: {
+    label: 'Attendee pagination',
+    previous: 'Previous',
+    next: 'Next',
+    info: 'Page {page} / {pages} — {total} attendees',
+  },
   stats: {
     title: 'Statistics',
     close: 'Close',

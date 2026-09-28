@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import EventSelector from '@/components/EventSelector.vue'
 import AttendeeTable from '@/components/AttendeeTable.vue'
@@ -62,6 +62,19 @@ const filteredAttendees = computed(() => {
   })
 })
 
+const PAGE_SIZE = 25
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil(filteredAttendees.value.length / PAGE_SIZE)))
+const pagedAttendees = computed(() => {
+  const start = (page.value - 1) * PAGE_SIZE
+  return filteredAttendees.value.slice(start, start + PAGE_SIZE)
+})
+
+watch([nameFilter, arrivalFilter, groupFilter, checkInFilter], () => (page.value = 1))
+watch(pageCount, (count) => {
+  if (page.value > count) page.value = count
+})
+
 onMounted(() => {
   eventsStore.loadEvents()
 })
@@ -73,6 +86,7 @@ function onEventSelect(eventId: number) {
   arrivalFilter.value = ''
   groupFilter.value = ''
   checkInFilter.value = ''
+  page.value = 1
   attendeesStore.loadAttendees(eventId)
 }
 
@@ -268,7 +282,8 @@ function printBadge(attendee: Attendee) {
       </div>
 
       <AttendeeTable
-        :attendees="filteredAttendees"
+        :attendees="pagedAttendees"
+        :columns-of="filteredAttendees"
         :loading="attendeesLoading"
         :pending-action-id="pendingActionId"
         :groups="groupMap"
@@ -278,6 +293,37 @@ function printBadge(attendee: Attendee) {
         @print="printBadge"
         @set-group="attendeesStore.setGroup"
       />
+      <nav
+        v-if="!attendeesLoading && pageCount > 1"
+        class="pagination"
+        :aria-label="t('pagination.label')"
+      >
+        <button
+          type="button"
+          class="page-btn"
+          :disabled="page === 1"
+          @click="page--"
+        >
+          {{ t('pagination.previous') }}
+        </button>
+        <span class="page-info">
+          {{
+            t('pagination.info', {
+              page,
+              pages: pageCount,
+              total: filteredAttendees.length,
+            })
+          }}
+        </span>
+        <button
+          type="button"
+          class="page-btn"
+          :disabled="page === pageCount"
+          @click="page++"
+        >
+          {{ t('pagination.next') }}
+        </button>
+      </nav>
       <p v-if="attendeesError" class="error" role="alert">{{ attendeesError }}</p>
     </section>
 
@@ -496,5 +542,42 @@ h1 {
   border: 1px solid color-mix(in srgb, #dc2626 40%, transparent);
   background: color-mix(in srgb, #dc2626 8%, transparent);
   color: #dc2626;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.page-btn {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-background);
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
 }
 </style>

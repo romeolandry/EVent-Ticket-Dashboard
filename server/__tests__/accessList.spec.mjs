@@ -52,6 +52,13 @@ describe('isAllowedEmail', () => {
   it('fonctionne avec une liste vide', () => {
     expect(isAllowedEmail('x@y.z', { superuserEmail: 'a@b.cd', allowedEmails: [] })).toBe(false)
   })
+
+  it('autorise tous les superusers d’une liste séparée par des virgules', () => {
+    const ctxMulti = { ...ctx, superuserEmail: 'admin@wach-auf.com,admin2@wach-auf.com' }
+    expect(isAllowedEmail('admin@wach-auf.com', ctxMulti)).toBe(true)
+    expect(isAllowedEmail('Admin2@Wach-Auf.com', ctxMulti)).toBe(true)
+    expect(isAllowedEmail('inconnu@example.com', ctxMulti)).toBe(false)
+  })
 })
 
 describe('isSuperuserEmail', () => {
@@ -60,6 +67,14 @@ describe('isSuperuserEmail', () => {
     expect(isSuperuserEmail('Admin@Wach-Auf.com', 'admin@wach-auf.com')).toBe(true)
     expect(isSuperuserEmail('autre@wach-auf.com', 'admin@wach-auf.com')).toBe(false)
     expect(isSuperuserEmail('', '')).toBe(false)
+  })
+
+  it('accepte plusieurs superusers séparés par des virgules', () => {
+    const env = 'admin@wach-auf.com, Second@Wach-Auf.com ,troisieme@wach-auf.com'
+    expect(isSuperuserEmail('admin@wach-auf.com', env)).toBe(true)
+    expect(isSuperuserEmail('second@wach-auf.com', env)).toBe(true)
+    expect(isSuperuserEmail('TROISIEME@wach-auf.com', env)).toBe(true)
+    expect(isSuperuserEmail('autre@wach-auf.com', env)).toBe(false)
   })
 })
 

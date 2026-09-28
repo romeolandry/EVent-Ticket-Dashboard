@@ -69,7 +69,7 @@ Copy `.env.example` to `.env`:
 | `WP_API_URL` (or `VITE_WP_API_URL`) | server | WordPress base URL, no trailing slash |
 | `WP_AUTH_USER` (or `VITE_WP_AUTH_USER`) | server | WP user for the API (prefer an **application password**) |
 | `WP_AUTH_PASSWORD` (or `VITE_WP_AUTH_PASSWORD`) | server | The application password |
-| `SUPERUSER_EMAIL` | server | Only this email can manage the allow-list |
+| `SUPERUSER_EMAIL` | server | Only these emails can manage the allow-list (comma-separated list supported) |
 | `PORT` | server | Listen port (default `8080`) |
 | `DATA_DIR` | server | Folder holding `allowed-emails.json` (default `/data`) |
 

@@ -48,6 +48,12 @@ export default {
     group: 'Groupe',
     printNeedsGroup: 'Assignez un groupe avant d’imprimer le badge',
   },
+  pagination: {
+    label: 'Pagination des participants',
+    previous: 'Précédent',
+    next: 'Suivant',
+    info: 'Page {page} / {pages} — {total} participants',
+  },
   stats: {
     title: 'Statistiques',
     close: 'Fermer',
