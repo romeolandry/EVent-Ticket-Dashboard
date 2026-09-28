@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { SUPPORTED_LOCALES, setLocale, type AppLocale } from '@/i18n'
+import { LOCALE_FLAGS, SUPPORTED_LOCALES, setLocale, type AppLocale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { SESSION_EXPIRED_EVENT } from '@/services/sessionEvents'
 import AccessModal from '@/components/AccessModal.vue'
@@ -55,7 +55,7 @@ async function onLogout() {
         @change="onLocaleChange"
       >
         <option v-for="lang in SUPPORTED_LOCALES" :key="lang" :value="lang">
-          {{ lang.toUpperCase() }}
+          {{ LOCALE_FLAGS[lang] }} {{ lang.toUpperCase() }}
         </option>
       </select>
       <button

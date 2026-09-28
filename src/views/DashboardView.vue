@@ -133,8 +133,13 @@ function printBadge(attendee: Attendee) {
     config.customTitle.trim() ||
     (events.value.find((e) => e.id === attendeesStore.selectedEventId)?.title ?? '')
   const group = groupMap.value[attendee.id]
+  const iconUrl = new URL(`${import.meta.env.BASE_URL}favicon.png`, window.location.origin).href
+  const bw = config.colorMode === 'bw'
 
   const lines: string[] = []
+  if (config.showLogo) {
+    lines.push(`<img class="logo" src="${iconUrl}" alt="">`)
+  }
   if (config.showEventTitle && eventTitle) {
     lines.push(`<p class="event">${escapeHtml(eventTitle)}</p>`)
   }
@@ -156,7 +161,6 @@ function printBadge(attendee: Attendee) {
       )
     }
   }
-  lines.push(`<p class="id">#${attendee.id}</p>`)
 
   const win = window.open('', '_blank', 'width=420,height=600')
   if (!win) return
@@ -165,16 +169,25 @@ function printBadge(attendee: Attendee) {
 <head>
 <meta charset="utf-8">
 <title>${escapeHtml(t('badge.title', { name: attendee.name }))}</title>
+<link rel="icon" type="image/png" href="${iconUrl}">
+<link rel="apple-touch-icon" href="${iconUrl}">
 <style>
   body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; }
   .badge { border: 2px solid #333; border-radius: 16px; padding: 24px; width: 340px; }
+  .logo { width: 48px; height: 48px; object-fit: contain; margin-bottom: 12px; }
   .event { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 16px; }
   .name { font-size: 28px; font-weight: 700; margin: 0 0 8px; }
   .group { display: inline-block; font-size: 14px; font-weight: 700; color: #fff; background: #4f46e5; border-radius: 999px; padding: 2px 12px; margin: 0 0 8px; }
   .ticket { font-size: 16px; color: #4f46e5; font-weight: 600; margin: 0 0 4px; }
   .email { font-size: 13px; color: #666; margin: 0 0 10px; }
   .custom { font-size: 13px; margin: 0 0 4px; }
-  .id { font-size: 12px; color: #999; margin-top: 12px; }
+  ${bw ? `
+  .badge { border-color: #000; }
+  .logo { filter: grayscale(1); }
+  .event, .email { color: #000; }
+  .ticket { color: #000; }
+  .group { background: #000; color: #fff; }
+  ` : ''}
   @media print { body { padding: 0; } }
 </style>
 </head>
@@ -185,8 +198,10 @@ function printBadge(attendee: Attendee) {
 </body>
 </html>`)
   win.document.close()
-  win.focus()
-  win.print()
+  win.addEventListener('load', () => {
+    win.focus()
+    win.print()
+  })
 }
 </script>
 

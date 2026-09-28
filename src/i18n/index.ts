@@ -5,6 +5,11 @@ import de from './de'
 
 export type AppLocale = 'fr' | 'en' | 'de'
 export const SUPPORTED_LOCALES: AppLocale[] = ['fr', 'en', 'de']
+export const LOCALE_FLAGS: Record<AppLocale, string> = {
+  fr: '🇫🇷',
+  en: '🇬🇧',
+  de: '🇩🇪',
+}
 export type MessageSchema = typeof fr
 
 const STORAGE_KEY = 'etp-locale'

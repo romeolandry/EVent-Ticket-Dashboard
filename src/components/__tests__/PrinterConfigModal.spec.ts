@@ -52,6 +52,25 @@ describe('PrinterConfigModal', () => {
     expect(saved.fieldKeys).toContain('Kinder')
   })
 
+  it('émet save avec le mode noir et blanc et le logo masqué', async () => {
+    const wrapper = mountModal()
+
+    await wrapper.find('input[type="radio"][value="bw"]').setValue(true)
+    const logoCheckbox = wrapper.findAll('input[type="checkbox"]').find((c) =>
+      c.element.parentElement?.textContent?.includes('Logo'),
+    )
+    await logoCheckbox!.setValue(false)
+
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === 'Enregistrer')!
+      .trigger('click')
+
+    const saved = wrapper.emitted('save')?.[0]?.[0] as typeof DEFAULT_BADGE_CONFIG
+    expect(saved.colorMode).toBe('bw')
+    expect(saved.showLogo).toBe(false)
+  })
+
   it('émet groupCountChange et autoAssign', async () => {
     const wrapper = mountModal()
 

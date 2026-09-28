@@ -6,6 +6,10 @@ export interface BadgeConfig {
   showEmail: boolean
   showTicket: boolean
   showGroup: boolean
+  /** Affiche le logo (favicon de l'application) en haut du badge. */
+  showLogo: boolean
+  /** Rendu couleur ou noir et blanc du badge imprimé. */
+  colorMode: 'color' | 'bw'
   /** Clés des champs personnalisés WordPress affichés sur le badge. */
   fieldKeys: string[]
 }
@@ -16,6 +20,8 @@ export const DEFAULT_BADGE_CONFIG: BadgeConfig = {
   showEmail: true,
   showTicket: true,
   showGroup: true,
+  showLogo: true,
+  colorMode: 'color',
   fieldKeys: [],
 }
 
@@ -29,6 +35,7 @@ export function loadBadgeConfig(storage: Storage = localStorage): BadgeConfig {
     return {
       ...DEFAULT_BADGE_CONFIG,
       ...parsed,
+      colorMode: parsed.colorMode === 'bw' ? 'bw' : 'color',
       fieldKeys: Array.isArray(parsed.fieldKeys) ? parsed.fieldKeys : [],
     }
   } catch {

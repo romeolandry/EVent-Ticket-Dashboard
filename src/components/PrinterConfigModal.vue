@@ -88,6 +88,20 @@ function onGroupCountInput(event: Event) {
           <input v-model="draft.showGroup" type="checkbox" />
           {{ t('printer.showGroup') }}
         </label>
+        <label class="check-row">
+          <input v-model="draft.showLogo" type="checkbox" />
+          {{ t('printer.showLogo') }}
+        </label>
+
+        <p class="sub">{{ t('printer.colorMode') }}</p>
+        <label class="check-row indent">
+          <input v-model="draft.colorMode" type="radio" value="color" name="color-mode" />
+          {{ t('printer.colorColor') }}
+        </label>
+        <label class="check-row indent">
+          <input v-model="draft.colorMode" type="radio" value="bw" name="color-mode" />
+          {{ t('printer.colorBw') }}
+        </label>
 
         <template v-if="availableFieldKeys.length > 0">
           <p class="sub">{{ t('printer.customFields') }}</p>
