@@ -76,6 +76,15 @@ describe('isSuperuserEmail', () => {
     expect(isSuperuserEmail('TROISIEME@wach-auf.com', env)).toBe(true)
     expect(isSuperuserEmail('autre@wach-auf.com', env)).toBe(false)
   })
+
+  it('un préfixe doublé dans le .env corrompt la première entrée', () => {
+    // Regression : « SUPERUSER_EMAIL=SUPERUSER_EMAIL=a@x.com,b@y.com » ne
+    // reconnaissait que le dernier email. L'entrée corrompue contient « = »
+    // (le serveur log un avertissement au démarrage dans ce cas).
+    const env = 'SUPERUSER_EMAIL=premier@wach-auf.com,dernier@wach-auf.com'
+    expect(isSuperuserEmail('premier@wach-auf.com', env)).toBe(false)
+    expect(isSuperuserEmail('dernier@wach-auf.com', env)).toBe(true)
+  })
 })
 
 describe('sanitizeEmailList', () => {

@@ -23,6 +23,7 @@ import {
   isSuperuserEmail,
   isValidEmail,
   normalizeEmail,
+  parseSuperuserEmails,
   sanitizeEmailList,
 } from './accessList.mjs'
 import { groupsFileName, sanitizeGroupState } from './groupsStore.mjs'
@@ -296,4 +297,15 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`[server] écoute sur http://${HOST}:${PORT} (dist: ${DIST_DIR}, data: ${DATA_DIR})`)
+  // Aide au diagnostic des fautes de frappe dans SUPERUSER_EMAIL
+  // (typiquement « VAR=VAR=valeur » : seul le dernier email est reconnu).
+  const superusers = parseSuperuserEmails(SUPERUSER_EMAIL)
+  console.log(`[server] ${superusers.length} superuser(s) autorisés`)
+  for (const email of superusers) {
+    if (email.includes('=')) {
+      console.warn(
+        `[server] SUPERUSER_EMAIL : entrée suspecte "${email}" — vérifiez le .env (format : NOM=valeur, sans préfixe doublé)`,
+      )
+    }
+  }
 })
