@@ -19,6 +19,12 @@ const arrivals = computed(() => arrivalStats(props.attendees))
 const maxAgeCount = computed(() => Math.max(1, ...children.value.byAge.map((a) => a.count)))
 const maxArrivalCount = computed(() => Math.max(1, ...arrivals.value.map((a) => a.count)))
 
+const totalAttendees = computed(() => props.attendees.length)
+const checkedCount = computed(() => props.attendees.filter((a) => a.checkedIn).length)
+const attendancePct = computed(() =>
+  totalAttendees.value === 0 ? 0 : Math.round((checkedCount.value / totalAttendees.value) * 100),
+)
+
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close')
 }
@@ -41,6 +47,47 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           ✕
         </button>
       </header>
+
+      <section class="stat">
+        <h3>{{ t('stats.attendanceTitle') }}</h3>
+        <p v-if="totalAttendees === 0" class="empty">{{ t('stats.noAttendees') }}</p>
+        <div v-else class="pie-row">
+          <svg
+            viewBox="0 0 42 42"
+            class="pie"
+            role="img"
+            :aria-label="t('stats.attendanceAria', { pct: attendancePct })"
+          >
+            <circle class="pie-track" cx="21" cy="21" r="15.9155" pathLength="100" />
+            <circle
+              class="pie-value"
+              cx="21"
+              cy="21"
+              r="15.9155"
+              pathLength="100"
+              :stroke-dasharray="`${attendancePct} ${100 - attendancePct}`"
+            />
+            <text x="21" y="21" class="pie-label" text-anchor="middle" dominant-baseline="central">
+              {{ attendancePct }}%
+            </text>
+          </svg>
+          <ul class="pie-legend">
+            <li>
+              <span class="dot dot-checked" aria-hidden="true" />
+              {{ t('stats.presentCount', { count: checkedCount, s: checkedCount > 1 ? 's' : '' }) }}
+            </li>
+            <li>
+              <span class="dot dot-absent" aria-hidden="true" />
+              {{
+                t('stats.absentCount', {
+                  count: totalAttendees - checkedCount,
+                  s: totalAttendees - checkedCount > 1 ? 's' : '',
+                })
+              }}
+            </li>
+          </ul>
+        </div>
+      </section>
 
       <section class="stat">
         <h3>{{ t('stats.childrenTitle') }}</h3>
@@ -213,5 +260,75 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   margin-top: 0.75rem;
   font-weight: 600;
   font-size: 0.9rem;
+}
+
+.pie-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+}
+
+.pie {
+  width: 7.5rem;
+  height: 7.5rem;
+  transform: rotate(-90deg);
+}
+
+.pie text {
+  transform: rotate(90deg);
+  transform-origin: center;
+}
+
+.pie-track,
+.pie-value {
+  fill: none;
+  stroke-width: 6;
+}
+
+.pie-track {
+  stroke: var(--color-background-mute);
+}
+
+.pie-value {
+  stroke: var(--color-accent);
+  transition: stroke-dasharray 0.3s ease;
+}
+
+.pie-label {
+  font-size: 0.5rem;
+  font-weight: 700;
+  fill: var(--color-text);
+}
+
+.pie-legend {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.pie-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-checked {
+  background: var(--color-accent);
+}
+
+.dot-absent {
+  background: var(--color-background-mute);
+  border: 1px solid var(--color-border-hover);
 }
 </style>

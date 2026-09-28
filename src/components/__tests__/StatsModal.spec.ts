@@ -31,6 +31,27 @@ const attendees: Attendee[] = [
 ]
 
 describe('StatsModal', () => {
+  it('affiche le diagramme circulaire du taux de présence', () => {
+    const wrapper = mountModal({ attendees })
+
+    // 0 présent sur 2 participants
+    expect(wrapper.text()).toContain('Taux de présence')
+    expect(wrapper.find('.pie-label').text()).toBe('0%')
+    expect(wrapper.find('.pie-value').attributes('stroke-dasharray')).toBe('0 100')
+    expect(wrapper.text()).toContain('2 absents')
+  })
+
+  it('met à jour le pourcentage selon les check-ins', () => {
+    const wrapper = mountModal({
+      attendees: [attendees[0]!, { ...attendees[1]!, checkedIn: true }],
+    })
+
+    expect(wrapper.find('.pie-label').text()).toBe('50%')
+    expect(wrapper.find('.pie-value').attributes('stroke-dasharray')).toBe('50 50')
+    expect(wrapper.text()).toContain('1 présent')
+    expect(wrapper.text()).toContain('1 absent')
+  })
+
   it('affiche les enfants par âge et le total', () => {
     const wrapper = mountModal({ attendees })
     const section = wrapper.text()

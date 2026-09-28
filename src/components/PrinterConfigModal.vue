@@ -12,6 +12,10 @@ const props = defineProps<{
   availableFieldKeys: string[]
   /** Nombre de groupes de travail configurables. */
   groupCount: number
+  /** Emails exclus de la répartition automatique (pour cet événement). */
+  excludedEmails: string[]
+  /** Emails des participants chargés (suggestions de l'autocomplete). */
+  attendeeEmails: string[]
 }>()
 
 const emit = defineEmits<{
@@ -19,7 +23,18 @@ const emit = defineEmits<{
   close: []
   groupCountChange: [count: number]
   autoAssign: []
+  addExclusion: [email: string]
+  removeExclusion: [email: string]
 }>()
+
+const exclusionInput = ref('')
+
+function onAddExclusion() {
+  const email = exclusionInput.value.trim()
+  if (!email) return
+  emit('addExclusion', email)
+  exclusionInput.value = ''
+}
 
 const { t } = useI18n()
 
@@ -133,6 +148,44 @@ function onGroupCountInput(event: Event) {
           </button>
         </div>
         <p class="sub">{{ t('printer.groupHint') }}</p>
+
+        <p class="sub section-gap">{{ t('printer.excludedTitle') }}</p>
+        <div class="group-row">
+          <input
+            id="excluded-email"
+            v-model="exclusionInput"
+            type="email"
+            list="attendee-emails"
+            class="text-input exclusion-input"
+            :placeholder="t('printer.excludedPlaceholder')"
+            :aria-label="t('printer.excludedTitle')"
+            @keydown.enter.prevent="onAddExclusion"
+          />
+          <datalist id="attendee-emails">
+            <option
+              v-for="email in attendeeEmails"
+              :key="email"
+              :value="email"
+            />
+          </datalist>
+          <button type="button" class="btn-secondary" @click="onAddExclusion">
+            {{ t('printer.addExcluded') }}
+          </button>
+        </div>
+        <ul v-if="excludedEmails.length > 0" class="exclusion-list">
+          <li v-for="email in excludedEmails" :key="email" class="exclusion-item">
+            <span class="exclusion-email">{{ email }}</span>
+            <button
+              type="button"
+              class="exclusion-remove"
+              :aria-label="t('printer.removeExcluded', { email })"
+              @click="emit('removeExclusion', email)"
+            >
+              ✕
+            </button>
+          </li>
+        </ul>
+        <p v-else class="sub">{{ t('printer.excludedEmpty') }}</p>
       </section>
 
       <footer class="actions-footer">
@@ -249,6 +302,55 @@ function onGroupCountInput(event: Event) {
   display: flex;
   align-items: center;
   gap: 0.9rem;
+}
+
+.section-gap {
+  margin-top: 1.1rem;
+}
+
+.exclusion-input {
+  flex: 1;
+  margin-top: 0;
+}
+
+.exclusion-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+
+.exclusion-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-background-mute);
+  font-size: 0.82rem;
+}
+
+.exclusion-email {
+  overflow-wrap: anywhere;
+}
+
+.exclusion-remove {
+  border: none;
+  background: none;
+  padding: 0.1rem;
+  cursor: pointer;
+  color: var(--color-text);
+  opacity: 0.55;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.exclusion-remove:hover {
+  opacity: 1;
+  color: var(--color-accent);
 }
 
 .btn-primary {

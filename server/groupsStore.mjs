@@ -1,8 +1,8 @@
 /**
  * Logique des groupes de travail — fonctions pures, sans I/O, testées par
- * Vitest. Les fichiers sont gérés par server/index.mjs (jamais servis par
- * HTTP) dans DATA_DIR.
+ * Vitest. Le stockage SQLite est géré par server/groupsDb.mjs.
  */
+import { sanitizeEmailList } from './accessList.mjs'
 
 const DEFAULT_GROUP_COUNT = 4
 
@@ -14,10 +14,13 @@ export function groupsFileName(eventId) {
 }
 
 /**
- * Nettoie un état { count, map } reçu d'un client ou lu depuis le disque :
- * - count : entier >= 1 (sinon valeur par défaut)
- * - map   : attendeeId (entier > 0) → numéro de groupe (entier 1..count)
- *           les entrées invalides ou hors limites sont ignorées.
+ * Nettoie un état { count, map, excludeEmails } reçu d'un client ou lu
+ * depuis le disque :
+ * - count         : entier >= 1 (sinon valeur par défaut)
+ * - map           : attendeeId (entier > 0) → numéro de groupe (entier 1..count)
+ *                   les entrées invalides ou hors limites sont ignorées
+ * - excludeEmails : emails normalisés/valides/dédupliqués — participants
+ *                   exclus de la répartition automatique pour l'événement.
  */
 export function sanitizeGroupState(value) {
   const input = value && typeof value === 'object' ? value : {}
@@ -34,5 +37,10 @@ export function sanitizeGroupState(value) {
       map[attendeeId] = groupNumber
     }
   }
-  return { count, map }
+
+  const excludeEmails = Array.isArray(input.excludeEmails)
+    ? sanitizeEmailList(input.excludeEmails).cleaned
+    : []
+
+  return { count, map, excludeEmails }
 }

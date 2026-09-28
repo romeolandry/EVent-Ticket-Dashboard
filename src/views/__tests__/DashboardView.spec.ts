@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import DashboardView from '@/views/DashboardView.vue'
 import { useAttendeesStore } from '@/stores/attendees'
 import { useNotificationsStore } from '@/stores/notifications'
+import { fetchSetting, saveSetting } from '@/services/settingsApi'
+import { DEFAULT_BADGE_CONFIG } from '@/types/badge'
 import { createTestI18n } from '@/test/i18n'
 import type { Attendee } from '@/types/tickets'
 
@@ -21,13 +23,24 @@ vi.mock('@/services/groupsApi', () => ({
   saveGroups: vi.fn<(eventId: number, state: unknown) => Promise<void>>(async () => undefined),
 }))
 
+vi.mock('@/services/settingsApi', () => ({
+  fetchSetting: vi.fn<(key: string) => Promise<null>>(async () => null),
+  saveSetting: vi.fn<(key: string, value: unknown) => Promise<void>>(async () => undefined),
+}))
+
 function makeAttendee(id: number, name: string): Attendee {
   return { id, name, email: '', ticket: 'Standard', checkedIn: false, fields: {} }
 }
 
+const mockedFetchSetting = vi.mocked(fetchSetting)
+const mockedSaveSetting = vi.mocked(saveSetting)
+
 describe('DashboardView', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    localStorage.clear()
+    mockedFetchSetting.mockClear().mockResolvedValue(null)
+    mockedSaveSetting.mockClear()
   })
 
   it('filtre le tableau par nom (insensible à la casse)', async () => {
@@ -280,5 +293,93 @@ describe('DashboardView', () => {
     const messages = notifications.notifications.map((n) => n.message)
     expect(messages).toContain('Nombre de groupes : 2')
     expect(messages.some((m) => m.startsWith('Répartition terminée'))).toBe(true)
+  })
+
+  it('gère la liste des emails exclus (ajout, notification, retrait)', async () => {
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = [makeAttendee(1, 'Alice Dupont')]
+    store.selectedEventId = 1262
+    await wrapper.vm.$nextTick()
+    const notifications = useNotificationsStore()
+
+    await wrapper.findAll('button').find((b) => b.text() === 'Impression')!.trigger('click')
+    await wrapper.find('#excluded-email').setValue('staff@wach-auf.com')
+    await wrapper.findAll('button').find((b) => b.text() === 'Exclure')!.trigger('click')
+
+    expect(store.excludedEmails).toEqual(['staff@wach-auf.com'])
+    expect(notifications.notifications.map((n) => n.message)).toContain(
+      'staff@wach-auf.com exclu de la répartition',
+    )
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('staff@wach-auf.com')
+
+    await wrapper.find('button.exclusion-remove').trigger('click')
+    expect(store.excludedEmails).toEqual([])
+    expect(notifications.notifications.map((n) => n.message)).toContain(
+      'staff@wach-auf.com n’est plus exclu',
+    )
+  })
+
+  it('refuse un email exclu invalide ou en doublon', async () => {
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = [makeAttendee(1, 'Alice Dupont')]
+    store.selectedEventId = 1262
+    await wrapper.vm.$nextTick()
+    const notifications = useNotificationsStore()
+
+    await wrapper.findAll('button').find((b) => b.text() === 'Impression')!.trigger('click')
+    await wrapper.find('#excluded-email').setValue('pas-un-email')
+    await wrapper.findAll('button').find((b) => b.text() === 'Exclure')!.trigger('click')
+
+    expect(store.excludedEmails).toEqual([])
+    expect(notifications.notifications.map((n) => n.message)).toContain(
+      'pas-un-email est déjà exclu ou invalide',
+    )
+  })
+
+  it('applique la config d’impression partagée chargée depuis le serveur', async () => {
+    mockedFetchSetting.mockResolvedValue({
+      ...DEFAULT_BADGE_CONFIG,
+      showEmail: false,
+      colorMode: 'bw',
+    } as never)
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = [makeAttendee(1, 'Alice Dupont')]
+    store.selectedEventId = 1262
+    await flushPromises()
+
+    await wrapper.findAll('button').find((b) => b.text() === 'Impression')!.trigger('click')
+
+    // La case Email est décochée selon la config partagée
+    const emailCheckbox = wrapper
+      .findAll('input[type="checkbox"]')
+      .find((c) => c.element.parentElement?.textContent?.trim() === 'Email')
+    expect((emailCheckbox!.element as HTMLInputElement).checked).toBe(false)
+    // … et mise en cache local
+    expect(JSON.parse(localStorage.getItem('etp-badge-config') ?? '{}').showEmail).toBe(false)
+  })
+
+  it('partage la config d’impression au serveur lors de l’enregistrement', async () => {
+    const wrapper = mountView()
+    const store = useAttendeesStore()
+    store.attendees = [makeAttendee(1, 'Alice Dupont')]
+    store.selectedEventId = 1262
+    await wrapper.vm.$nextTick()
+    const notifications = useNotificationsStore()
+
+    await wrapper.findAll('button').find((b) => b.text() === 'Impression')!.trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === 'Enregistrer')!
+      .trigger('click')
+    await flushPromises()
+
+    expect(mockedSaveSetting).toHaveBeenCalledWith('badge-config', DEFAULT_BADGE_CONFIG)
+    expect(notifications.notifications.map((n) => n.message)).toContain(
+      'Paramètres d’impression partagés avec tous les utilisateurs',
+    )
   })
 })

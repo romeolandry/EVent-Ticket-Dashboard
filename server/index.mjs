@@ -4,6 +4,7 @@
  * - POST /api/auth { email }  → session si l'email est autorisé
  * - GET/PUT /api/access-list  → superuser uniquement
  * - GET/PUT /api/groups?event → groupes de travail partagés (session requise)
+ * - GET/PUT /api/settings?key → paramètres applicatifs partagés (session requise)
  * - GET  /config.js           → config runtime générée depuis l'environnement
  * - GET  /healthz
  *
@@ -27,7 +28,14 @@ import {
   sanitizeEmailList,
 } from './accessList.mjs'
 import { groupsFileName, sanitizeGroupState } from './groupsStore.mjs'
-import { isValidEventId, openGroupsDb, readGroupState, saveGroupState } from './groupsDb.mjs'
+import {
+  isValidEventId,
+  openGroupsDb,
+  readGroupState,
+  readSetting,
+  saveGroupState,
+  saveSetting,
+} from './groupsDb.mjs'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const HOST = process.env.HOST ?? '0.0.0.0'
@@ -160,7 +168,9 @@ const groupsDb = openGroupsDb(DATA_DIR)
 
 async function loadGroups(eventId) {
   const state = readGroupState(groupsDb, eventId)
-  if (state.saved) return { count: state.count, map: state.map }
+  if (state.saved) {
+    return { count: state.count, map: state.map, excludeEmails: state.excludeEmails }
+  }
   // Migration unique depuis l'ancien stockage JSON (groups-<eventId>.json)
   try {
     const legacy = JSON.parse(await readFile(join(DATA_DIR, groupsFileName(eventId)), 'utf8'))
@@ -168,7 +178,7 @@ async function loadGroups(eventId) {
     saveGroupState(groupsDb, eventId, migrated)
     return migrated
   } catch {
-    return { count: state.count, map: state.map }
+    return { count: state.count, map: state.map, excludeEmails: [] }
   }
 }
 
@@ -198,6 +208,34 @@ async function handleGroups(req, res, url) {
   }
   saveGroupState(groupsDb, eventId, state)
   return json(res, 200, state)
+}
+
+const SETTINGS_KEY_RE = /^[a-z0-9][a-z0-9-]{0,63}$/
+
+/**
+ * Paramètres applicatifs partagés entre tous les utilisateurs connectés
+ * (ex. key « badge-config ») — persistés dans app_settings (SQLite).
+ */
+async function handleSettings(req, res, url) {
+  const session = sessionFrom(req)
+  if (!session) return json(res, 401, { error: 'unauthorized' })
+
+  const key = url.searchParams.get('key') ?? ''
+  if (!SETTINGS_KEY_RE.test(key)) return json(res, 400, { error: 'invalid_key' })
+
+  if (req.method === 'GET') {
+    return json(res, 200, { key, value: readSetting(groupsDb, key) })
+  }
+
+  let body
+  try {
+    body = await readBody(req, 100_000)
+  } catch {
+    return json(res, 400, { error: 'invalid_body' })
+  }
+  if (!('value' in body)) return json(res, 400, { error: 'invalid_body' })
+  saveSetting(groupsDb, key, body.value)
+  return json(res, 200, { key, value: body.value })
 }
 
 async function handleLogout(req, res) {
@@ -284,6 +322,9 @@ const server = createServer(async (req, res) => {
     }
     if (pathname === '/api/groups' && (req.method === 'GET' || req.method === 'PUT')) {
       return await handleGroups(req, res, url)
+    }
+    if (pathname === '/api/settings' && (req.method === 'GET' || req.method === 'PUT')) {
+      return await handleSettings(req, res, url)
     }
     if (pathname.startsWith('/wp-api/')) return await handleWpProxy(req, res, url)
     if (req.method === 'GET') return await serveStatic(req, res, pathname)

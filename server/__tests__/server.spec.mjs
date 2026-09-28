@@ -156,7 +156,7 @@ describe('serveur Node — proxy WP et auth', () => {
     const clientA = await login('admin@wach-auf.com')
     const clientB = await login('admin@wach-auf.com')
 
-    const state = { count: 3, map: { 101: 2, 102: 1 } }
+    const state = { count: 3, map: { 101: 2, 102: 1 }, excludeEmails: ['staff@wach-auf.com'] }
     const put = await api('/api/groups?event=1262', {
       method: 'PUT',
       headers: { Authorization: `Bearer ${clientA.token}`, 'Content-Type': 'application/json' },
@@ -170,7 +170,7 @@ describe('serveur Node — proxy WP et auth', () => {
     expect(await getB.json()).toEqual(state)
 
     // Persisté dans la base SQLite DATA_DIR/groups.db : une ligne par
-    // participant avec son groupe (colonne group_number)
+    // participant avec son groupe (colonne group_number) + exclusions
     const { DatabaseSync } = await import('node:sqlite')
     const db = new DatabaseSync(join(dataDir, 'groups.db'))
     const rows = db
@@ -178,11 +178,15 @@ describe('serveur Node — proxy WP et auth', () => {
         'SELECT attendee_id, group_number FROM attendee_group WHERE event_id = 1262 ORDER BY attendee_id',
       )
       .all()
+    const exclusions = db
+      .prepare('SELECT email FROM event_group_exclusion WHERE event_id = 1262')
+      .all()
     db.close()
     expect(rows).toEqual([
       { attendee_id: 101, group_number: 2 },
       { attendee_id: 102, group_number: 1 },
     ])
+    expect(exclusions).toEqual([{ email: 'staff@wach-auf.com' }])
   })
 
   it('les groupes retournent l’état par défaut pour un événement jamais sauvegardé', async () => {
@@ -196,7 +200,7 @@ describe('serveur Node — proxy WP et auth', () => {
     const res = await api('/api/groups?event=9999', {
       headers: { Authorization: `Bearer ${token}` },
     })
-    expect(await res.json()).toEqual({ count: 4, map: {} })
+    expect(await res.json()).toEqual({ count: 4, map: {}, excludeEmails: [] })
   })
 
   it('un événement invalide est rejeté (400)', async () => {
@@ -211,6 +215,52 @@ describe('serveur Node — proxy WP et auth', () => {
       headers: { Authorization: `Bearer ${token}` },
     })
     expect(res.status).toBe(400)
+  })
+
+  it('les paramètres exigent une session et une clé valide', async () => {
+    expect((await api('/api/settings?key=badge-config')).status).toBe(401)
+
+    const login = await api('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'admin@wach-auf.com' }),
+    })
+    const { token } = await login.json()
+
+    const res = await api('/api/settings?key=../../secret', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('les paramètres sont partagés entre tous les utilisateurs connectés', async () => {
+    const login = () =>
+      api('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'admin@wach-auf.com' }),
+      }).then((r) => r.json())
+    const clientA = await login()
+    const clientB = await login()
+
+    // Paramètre jamais enregistré → value: null
+    const empty = await api('/api/settings?key=test-config', {
+      headers: { Authorization: `Bearer ${clientA.token}` },
+    })
+    expect(await empty.json()).toEqual({ key: 'test-config', value: null })
+
+    const config = { showEmail: true, colorMode: 'bw' }
+    const put = await api('/api/settings?key=test-config', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${clientA.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: config }),
+    })
+    expect(put.status).toBe(200)
+
+    const getB = await api('/api/settings?key=test-config', {
+      headers: { Authorization: `Bearer ${clientB.token}` },
+    })
+    expect(await getB.json()).toEqual({ key: 'test-config', value: config })
   })
 
   it('la liste d’accès n’est pas exposée via le proxy ni le statique', async () => {

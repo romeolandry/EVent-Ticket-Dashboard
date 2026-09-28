@@ -10,6 +10,8 @@ function mountModal(
     eventTitle: string
     availableFieldKeys: string[]
     groupCount: number
+    excludedEmails: string[]
+    attendeeEmails: string[]
   }> = {},
 ) {
   return mount(PrinterConfigModal, {
@@ -18,6 +20,8 @@ function mountModal(
       eventTitle: 'Gebetskonferenz 2026',
       availableFieldKeys: [],
       groupCount: 4,
+      excludedEmails: [],
+      attendeeEmails: [],
       ...props,
     },
     global: { plugins: [createTestI18n()] },
@@ -82,6 +86,39 @@ describe('PrinterConfigModal', () => {
       .find((b) => b.text() === 'Répartir automatiquement')!
       .trigger('click')
     expect(wrapper.emitted('autoAssign')).toHaveLength(1)
+  })
+
+  it('gère la liste des emails exclus : ajout, affichage, retrait', async () => {
+    const wrapper = mountModal({ excludedEmails: ['staff@wach-auf.com'] })
+
+    // Email déjà listé affiché
+    expect(wrapper.text()).toContain('staff@wach-auf.com')
+
+    // Ajout via le champ + bouton
+    await wrapper.find('#excluded-email').setValue('invite@wach-auf.com')
+    await wrapper.findAll('button').find((b) => b.text() === 'Exclure')!.trigger('click')
+    expect(wrapper.emitted('addExclusion')).toEqual([['invite@wach-auf.com']])
+
+    // Entrée vide : aucun événement émis
+    await wrapper.findAll('button').find((b) => b.text() === 'Exclure')!.trigger('click')
+    expect(wrapper.emitted('addExclusion')).toHaveLength(1)
+
+    // Retrait via ✕
+    await wrapper.find('button.exclusion-remove').trigger('click')
+    expect(wrapper.emitted('removeExclusion')).toEqual([['staff@wach-auf.com']])
+  })
+
+  it('propose les emails des participants en autocomplete', () => {
+    const wrapper = mountModal({
+      attendeeEmails: ['alice@example.com', 'bob@example.com'],
+    })
+
+    const options = wrapper.findAll('datalist#attendee-emails option')
+    expect(options.map((o) => o.attributes('value'))).toEqual([
+      'alice@example.com',
+      'bob@example.com',
+    ])
+    expect(wrapper.find('#excluded-email').attributes('list')).toBe('attendee-emails')
   })
 
   it('émet close au clic sur ✕ et sur le fond', async () => {

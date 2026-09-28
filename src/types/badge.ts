@@ -1,4 +1,8 @@
-/** Configuration d'impression des badges (persistée dans localStorage). */
+/**
+ * Configuration d'impression des badges. Persistée côté serveur
+ * (`/api/settings?key=badge-config`) et partagée entre tous les
+ * utilisateurs connectés ; localStorage sert de cache hors-ligne.
+ */
 export interface BadgeConfig {
   /** Titre personnalisé affiché sur le badge ; vide = titre de l'événement. */
   customTitle: string
@@ -26,18 +30,26 @@ export const DEFAULT_BADGE_CONFIG: BadgeConfig = {
 }
 
 export const BADGE_CONFIG_STORAGE_KEY = 'etp-badge-config'
+export const BADGE_CONFIG_SETTING_KEY = 'badge-config'
+
+/** Nettoie une valeur inconnue (serveur ou cache local) en BadgeConfig. */
+export function normalizeBadgeConfig(value: unknown): BadgeConfig {
+  const parsed = value && typeof value === 'object' ? (value as Partial<BadgeConfig>) : {}
+  return {
+    ...DEFAULT_BADGE_CONFIG,
+    ...parsed,
+    colorMode: parsed.colorMode === 'bw' ? 'bw' : 'color',
+    fieldKeys: Array.isArray(parsed.fieldKeys)
+      ? parsed.fieldKeys.filter((k): k is string => typeof k === 'string')
+      : [],
+  }
+}
 
 export function loadBadgeConfig(storage: Storage = localStorage): BadgeConfig {
   try {
     const raw = storage.getItem(BADGE_CONFIG_STORAGE_KEY)
     if (!raw) return { ...DEFAULT_BADGE_CONFIG }
-    const parsed = JSON.parse(raw) as Partial<BadgeConfig>
-    return {
-      ...DEFAULT_BADGE_CONFIG,
-      ...parsed,
-      colorMode: parsed.colorMode === 'bw' ? 'bw' : 'color',
-      fieldKeys: Array.isArray(parsed.fieldKeys) ? parsed.fieldKeys : [],
-    }
+    return normalizeBadgeConfig(JSON.parse(raw))
   } catch {
     return { ...DEFAULT_BADGE_CONFIG }
   }

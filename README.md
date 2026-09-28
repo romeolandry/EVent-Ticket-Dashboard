@@ -21,12 +21,15 @@ Node server** (backend) shipping in a single Docker image.
   SQLite database** (`/data/groups.db`, built-in `node:sqlite` — one row per
   attendee in table `attendee_group`, rewritten on every change) and shared
   by all connected clients; `localStorage` is only an offline fallback.
+  An **exclusion list** per event (table `event_group_exclusion`) keeps
+  listed emails out of auto-assign (manual assignment stays possible).
   Badges can only be printed for attendees who are checked in **and** have a
   group.
 - **Badge printing**: configurable print window — event title (overridable),
   email, ticket, group, and any custom fields.
-- **Statistics popup**: children-by-age aggregation (parses free-text German
-  answers) and arrival-day distribution.
+- **Statistics popup**: attendance-rate pie chart (checked-in vs not),
+  children-by-age aggregation (parses free-text German answers) and
+  arrival-day distribution.
 - **Filters**: by name, by arrival day, by group.
 - **CSV export** of the complete attendee list (Excel-friendly: `;`
   separator, UTF-8 BOM).
@@ -61,6 +64,7 @@ GET  /api/access-list        →    superuser only
 | POST | `/api/logout` | session | Destroy the session |
 | GET/PUT | `/api/access-list` | **superuser** | Read / replace the allowed-email list |
 | GET/PUT | `/api/groups?event=<id>` | session | Read / replace the shared work-group state of an event |
+| GET/PUT | `/api/settings?key=<key>` | session | Read / replace a shared app setting (e.g. `badge-config`), stored in SQLite `app_settings` |
 | GET/PATCH/… | `/wp-api/*` | session | Proxied to `VITE_WP_API_URL/wp-json/*` with Basic auth added |
 | GET | `/healthz` | — | Health check |
 

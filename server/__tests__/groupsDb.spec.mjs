@@ -3,7 +3,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtempSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { isValidEventId, openGroupsDb, readGroupState, saveGroupState } from '../groupsDb.mjs'
+import {
+  isValidEventId,
+  openGroupsDb,
+  readGroupState,
+  readSetting,
+  saveGroupState,
+  saveSetting,
+} from '../groupsDb.mjs'
 
 describe('server/groupsDb', () => {
   let db
@@ -29,7 +36,7 @@ describe('server/groupsDb', () => {
 
   it('retourne l’état par défaut (non sauvegardé) pour un événement inconnu', () => {
     const state = readGroupState(db, 1)
-    expect(state).toEqual({ count: 4, map: {}, saved: false })
+    expect(state).toEqual({ count: 4, map: {}, excludeEmails: [], saved: false })
   })
 
   it('sauvegarde une ligne par participant avec son groupe', () => {
@@ -49,8 +56,21 @@ describe('server/groupsDb', () => {
     expect(readGroupState(db, 1262)).toEqual({
       count: 3,
       map: { 101: 2, 102: 1, 103: 2 },
+      excludeEmails: [],
       saved: true,
     })
+  })
+
+  it('sauvegarde et relit la liste des emails exclus par événement', () => {
+    saveGroupState(db, 1262, { count: 2, map: {}, excludeEmails: ['staff@wach-auf.com'] })
+    saveGroupState(db, 1298, { count: 2, map: {}, excludeEmails: ['autre@wach-auf.com'] })
+
+    expect(readGroupState(db, 1262).excludeEmails).toEqual(['staff@wach-auf.com'])
+    expect(readGroupState(db, 1298).excludeEmails).toEqual(['autre@wach-auf.com'])
+
+    // Mise à jour : retrait d'un email
+    saveGroupState(db, 1262, { count: 2, map: {}, excludeEmails: [] })
+    expect(readGroupState(db, 1262).excludeEmails).toEqual([])
   })
 
   it('un changement réécrit le groupe du participant (mise à jour)', () => {
@@ -80,6 +100,22 @@ describe('server/groupsDb', () => {
 
     expect(readGroupState(db, 1262)).toMatchObject({ count: 2, map: { 101: 1 } })
     expect(readGroupState(db, 1298)).toMatchObject({ count: 3, map: { 101: 3 } })
+  })
+
+  it('app_settings : sauvegarde et relit un paramètre partagé (JSON)', () => {
+    expect(readSetting(db, 'badge-config')).toBeNull()
+
+    saveSetting(db, 'badge-config', { showEmail: false, colorMode: 'bw' })
+    expect(readSetting(db, 'badge-config')).toEqual({ showEmail: false, colorMode: 'bw' })
+
+    // Remplacement complet
+    saveSetting(db, 'badge-config', { showEmail: true })
+    expect(readSetting(db, 'badge-config')).toEqual({ showEmail: true })
+
+    // Les clés sont isolées
+    saveSetting(db, 'autre', { x: 1 })
+    expect(readSetting(db, 'badge-config')).toEqual({ showEmail: true })
+    expect(readSetting(db, 'autre')).toEqual({ x: 1 })
   })
 
   it('crée le fichier groups.db dans DATA_DIR', () => {

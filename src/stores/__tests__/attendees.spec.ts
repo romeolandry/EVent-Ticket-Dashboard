@@ -7,9 +7,9 @@ import type { Attendee } from '@/types/tickets'
 
 vi.mock('@/services/wpApi', () => ({
   fetchAttendees: vi.fn<(eventId: number) => Promise<Attendee[]>>(async () => [
-    { id: 1, name: 'Alice', email: '', ticket: '', checkedIn: false, fields: {} },
-    { id: 2, name: 'Bob', email: '', ticket: '', checkedIn: false, fields: {} },
-    { id: 3, name: 'Claire', email: '', ticket: '', checkedIn: false, fields: {} },
+    { id: 1, name: 'Alice', email: 'alice@wach-auf.com', ticket: '', checkedIn: false, fields: {} },
+    { id: 2, name: 'Bob', email: 'bob@wach-auf.com', ticket: '', checkedIn: false, fields: {} },
+    { id: 3, name: 'Claire', email: 'claire@wach-auf.com', ticket: '', checkedIn: false, fields: {} },
   ]),
   setCheckedIn: vi.fn<(id: number, checked: boolean) => Promise<void>>(async () => undefined),
 }))
@@ -122,13 +122,17 @@ describe('stores/attendees — groupes de travail', () => {
     store.setGroup(2, 3)
 
     await vi.waitFor(() =>
-      expect(mockedSaveGroups).toHaveBeenCalledWith(1262, { count: 4, map: { 2: 3 } }),
+      expect(mockedSaveGroups).toHaveBeenCalledWith(1262, {
+        count: 4,
+        map: { 2: 3 },
+        excludeEmails: [],
+      }),
     )
   })
 
   it('le serveur fait foi au chargement (partage entre clients)', async () => {
     localStorage.setItem('etp-groups:1262', JSON.stringify({ count: 2, map: { 1: 1 } }))
-    mockedFetchGroups.mockResolvedValue({ count: 5, map: { 2: 5 } })
+    mockedFetchGroups.mockResolvedValue({ count: 5, map: { 2: 5 }, excludeEmails: [] })
     const store = useAttendeesStore()
 
     await store.loadAttendees(1262)
@@ -139,6 +143,7 @@ describe('stores/attendees — groupes de travail', () => {
     expect(JSON.parse(localStorage.getItem('etp-groups:1262') ?? '{}')).toEqual({
       count: 5,
       map: { 2: 5 },
+      excludeEmails: [],
     })
   })
 
@@ -151,6 +156,55 @@ describe('stores/attendees — groupes de travail', () => {
 
     expect(store.groupCount).toBe(3)
     expect(store.groupMap[7]).toBe(1)
+  })
+
+  it('addGroupExclusion normalise, valide, déduplique et persiste', async () => {
+    const store = useAttendeesStore()
+    await store.loadAttendees(1262)
+
+    expect(store.addGroupExclusion(' Staff@Wach-Auf.com ')).toBe(true)
+    expect(store.excludedEmails).toEqual(['staff@wach-auf.com'])
+    // Doublon (casse ignorée) et email invalide refusés
+    expect(store.addGroupExclusion('STAFF@wach-auf.com')).toBe(false)
+    expect(store.addGroupExclusion('pas-un-email')).toBe(false)
+    expect(store.excludedEmails).toEqual(['staff@wach-auf.com'])
+
+    await vi.waitFor(() =>
+      expect(mockedSaveGroups).toHaveBeenCalledWith(
+        1262,
+        expect.objectContaining({ excludeEmails: ['staff@wach-auf.com'] }),
+      ),
+    )
+  })
+
+  it('removeGroupExclusion retire l’email et persiste', async () => {
+    const store = useAttendeesStore()
+    await store.loadAttendees(1262)
+    store.addGroupExclusion('staff@wach-auf.com')
+
+    store.removeGroupExclusion('Staff@Wach-Auf.com')
+
+    expect(store.excludedEmails).toEqual([])
+    await vi.waitFor(() =>
+      expect(mockedSaveGroups).toHaveBeenLastCalledWith(
+        1262,
+        expect.objectContaining({ excludeEmails: [] }),
+      ),
+    )
+  })
+
+  it('autoAssignGroups exclut les emails listés de la répartition', async () => {
+    const store = useAttendeesStore()
+    await store.loadAttendees(1262)
+    store.setGroupCount(2)
+    store.addGroupExclusion('bob@wach-auf.com')
+
+    store.autoAssignGroups()
+
+    // Bob (exclu) ne reçoit aucun groupe ; les autres sont répartis
+    expect(store.groupMap[2]).toBeUndefined()
+    expect(store.groupMap[1]).toBe(1)
+    expect(store.groupMap[3]).toBe(2)
   })
 
   it('recharge les groupes sauvegardés au chargement de l’événement', async () => {

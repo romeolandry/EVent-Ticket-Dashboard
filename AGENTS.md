@@ -53,9 +53,21 @@ Event Tickets Plus).
   `groups-<eventId>.json` au premier chargement. localStorage
   (`etp-groups:<eventId>`) n'est plus qu'un cache hors-ligne.
   `autoAssignGroups` conserve les groupes existants et ne répartit que les
-  participants sans groupe (comble le groupe le moins rempli). Impression du
-  badge possible uniquement si le participant est checké ET a un groupe.
-  Config badge en localStorage (`etp-badge-config`).
+  participants sans groupe (comble le groupe le moins rempli).
+- Liste d'exclusion par événement (table `event_group_exclusion`) :
+  les emails listés ne reçoivent **jamais** de groupe via la répartition
+  automatique (l'assignation manuelle reste possible). Gérée dans la
+  fenêtre « Impression » (champ autocomplete alimenté par les emails des
+  participants), toast à chaque ajout/retrait.
+- Notifications : store Pinia `src/stores/notifications.ts` + composant
+  `ToastList.vue` monté dans `App.vue` (auto-dismiss 4 s, aria-live).
+- Impression du badge possible uniquement si le participant est
+  checké ET a un groupe. Config badge (et autres paramètres applicatifs)
+  persistée **côté serveur** (`GET/PUT /api/settings?key=<clé>`, table
+  `app_settings` de `/data/groups.db`) et partagée entre tous les
+  utilisateurs connectés ; localStorage (`etp-badge-config`) n'est qu'un
+  cache hors-ligne. Service front : `src/services/settingsApi.ts`,
+  normalisation : `normalizeBadgeConfig` dans `src/types/badge.ts`.
 
 ## Déploiement (Docker)
 

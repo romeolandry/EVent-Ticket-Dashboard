@@ -12,10 +12,13 @@ import { arrivalDay } from '@/services/attendeeStats'
 import { attendeesToCsv } from '@/services/csvExport'
 import { fieldLabel } from '@/services/fieldLabels'
 import {
+  BADGE_CONFIG_SETTING_KEY,
   loadBadgeConfig,
+  normalizeBadgeConfig,
   saveBadgeConfig,
   type BadgeConfig,
 } from '@/types/badge'
+import { fetchSetting, saveSetting } from '@/services/settingsApi'
 import { useI18n } from 'vue-i18n'
 import type { Attendee } from '@/types/tickets'
 
@@ -32,6 +35,7 @@ const {
   pendingActionId,
   groupMap,
   groupCount,
+  excludedEmails,
 } = storeToRefs(attendeesStore)
 
 const showStats = ref(false)
@@ -48,6 +52,11 @@ const arrivalOptions = computed(() =>
   ),
 )
 const groupOptions = computed(() => Array.from({ length: groupCount.value }, (_, i) => i + 1))
+const attendeeEmails = computed(() =>
+  [...new Set(attendees.value.map((a) => a.email.trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b),
+  ),
+)
 const availableFieldKeys = computed(() => [
   ...new Set(attendees.value.flatMap((a) => Object.keys(a.fields))),
 ])
@@ -77,8 +86,21 @@ watch(pageCount, (count) => {
   if (page.value > count) page.value = count
 })
 
+/**
+ * La config d'impression est partagée entre tous les utilisateurs : elle
+ * vient du serveur, localStorage ne sert que de repli hors-ligne.
+ */
+async function loadSharedBadgeConfig() {
+  const shared = await fetchSetting<unknown>(BADGE_CONFIG_SETTING_KEY).catch(() => null)
+  if (shared != null) {
+    badgeConfig.value = normalizeBadgeConfig(shared)
+    saveBadgeConfig(badgeConfig.value)
+  }
+}
+
 onMounted(() => {
   eventsStore.loadEvents()
+  loadSharedBadgeConfig()
 })
 
 function onEventSelect(eventId: number) {
@@ -96,6 +118,9 @@ function onSavePrinterConfig(config: BadgeConfig) {
   badgeConfig.value = config
   saveBadgeConfig(config)
   showPrinterConfig.value = false
+  saveSetting(BADGE_CONFIG_SETTING_KEY, config)
+    .then(() => notifications.notify(t('notify.settingsSaved')))
+    .catch(() => notifications.notify(t('notify.settingsSaveError')))
 }
 
 function onSetGroup(attendeeId: number, group: number | null) {
@@ -118,6 +143,20 @@ function onAutoAssignGroups() {
   notifications.notify(
     t('notify.groupsAutoAssigned', { count: groupCount.value, s: groupCount.value > 1 ? 's' : '' }),
   )
+}
+
+function onAddExclusion(email: string) {
+  const added = attendeesStore.addGroupExclusion(email)
+  notifications.notify(
+    t(added ? 'notify.exclusionAdded' : 'notify.exclusionExists', {
+      email: email.trim().toLowerCase() || email,
+    }),
+  )
+}
+
+function onRemoveExclusion(email: string) {
+  attendeesStore.removeGroupExclusion(email)
+  notifications.notify(t('notify.exclusionRemoved', { email }))
 }
 
 function exportCsv() {
@@ -374,10 +413,14 @@ function printBadge(attendee: Attendee) {
       "
       :available-field-keys="availableFieldKeys"
       :group-count="groupCount"
+      :excluded-emails="excludedEmails"
+      :attendee-emails="attendeeEmails"
       @save="onSavePrinterConfig"
       @close="showPrinterConfig = false"
       @group-count-change="onGroupCountChange"
       @auto-assign="onAutoAssignGroups"
+      @add-exclusion="onAddExclusion"
+      @remove-exclusion="onRemoveExclusion"
     />
 
     <StatsModal v-if="showStats" :attendees="attendees" @close="showStats = false" />

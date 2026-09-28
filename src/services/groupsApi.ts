@@ -10,6 +10,8 @@ export interface GroupState {
   count: number
   /** attendeeId → numéro de groupe */
   map: Record<number, number>
+  /** Emails exclus de la répartition automatique pour cet événement. */
+  excludeEmails: string[]
 }
 
 function sessionHeaders(extra: Record<string, string> = {}): Record<string, string> {
@@ -41,6 +43,9 @@ export async function fetchGroups(eventId: number): Promise<GroupState> {
   return {
     count: typeof data.count === 'number' && data.count >= 1 ? data.count : 4,
     map: data.map && typeof data.map === 'object' ? data.map : {},
+    excludeEmails: Array.isArray(data.excludeEmails)
+      ? data.excludeEmails.filter((e): e is string => typeof e === 'string')
+      : [],
   }
 }
 

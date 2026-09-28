@@ -14,15 +14,20 @@ describe('server/groupsStore', () => {
   })
 
   it('sanitizeGroupState retourne l’état par défaut pour une entrée vide', () => {
-    expect(sanitizeGroupState(null)).toEqual({ count: 4, map: {} })
-    expect(sanitizeGroupState(undefined)).toEqual({ count: 4, map: {} })
-    expect(sanitizeGroupState('n’importe quoi')).toEqual({ count: 4, map: {} })
+    expect(sanitizeGroupState(null)).toEqual({ count: 4, map: {}, excludeEmails: [] })
+    expect(sanitizeGroupState(undefined)).toEqual({ count: 4, map: {}, excludeEmails: [] })
+    expect(sanitizeGroupState('n’importe quoi')).toEqual({
+      count: 4,
+      map: {},
+      excludeEmails: [],
+    })
   })
 
   it('sanitizeGroupState conserve un état valide', () => {
     expect(sanitizeGroupState({ count: 3, map: { 12: 1, '34': 3 } })).toEqual({
       count: 3,
       map: { 12: 1, 34: 3 },
+      excludeEmails: [],
     })
   })
 
@@ -31,7 +36,16 @@ describe('server/groupsStore', () => {
       count: 2,
       map: { 1: 1, 2: 3, abc: 1, 4: 0, 5: 'x', '-6': 2 },
     })
-    expect(state).toEqual({ count: 2, map: { 1: 1 } })
+    expect(state).toEqual({ count: 2, map: { 1: 1 }, excludeEmails: [] })
+  })
+
+  it('sanitizeGroupState nettoie la liste des emails exclus', () => {
+    const state = sanitizeGroupState({
+      count: 2,
+      map: {},
+      excludeEmails: [' Staff@Wach-Auf.com ', 'pas-un-email', 'staff@wach-auf.com', 42],
+    })
+    expect(state.excludeEmails).toEqual(['staff@wach-auf.com'])
   })
 
   it('sanitizeGroupState applique le count par défaut si invalide', () => {
