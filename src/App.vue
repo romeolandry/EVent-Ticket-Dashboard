@@ -1,15 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { SUPPORTED_LOCALES, setLocale, type AppLocale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
+import { SESSION_EXPIRED_EVENT } from '@/services/sessionEvents'
 import AccessModal from '@/components/AccessModal.vue'
 
 const { t, locale } = useI18n()
 const router = useRouter()
 const auth = useAuthStore()
 const showAccess = ref(false)
+
+async function onSessionExpired() {
+  showAccess.value = false
+  await auth.logout()
+  if (router.currentRoute.value.name !== 'login') router.push({ name: 'login' })
+}
+
+onMounted(() => window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired))
+onUnmounted(() => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired))
 
 function onLocaleChange(event: Event) {
   setLocale((event.target as HTMLSelectElement).value as AppLocale)

@@ -68,7 +68,7 @@ export default {
     title: 'Connexion',
     subtitle: 'Entrez votre email pour accéder au tableau de bord',
     emailLabel: 'Adresse email',
-    emailPlaceholder: 'vous@exemple.com',
+    emailPlaceholder: "vous{'@'}exemple.com",
     submit: 'Se connecter',
     submitting: 'Connexion…',
     denied: 'Cet email n’est pas autorisé.',
@@ -82,7 +82,7 @@ export default {
     close: 'Fermer',
     intro:
       'Seuls les emails listés ici (et le superuser) peuvent ouvrir le tableau de bord.',
-    addPlaceholder: 'ajouter@exemple.com',
+    addPlaceholder: "ajouter{'@'}exemple.com",
     add: 'Ajouter',
     remove: 'Retirer',
     save: 'Enregistrer',

@@ -1,17 +1,27 @@
 services:
   dashboard:
     build: .
+    container_name: eventticketplus-dashboard
     ports:
-      - '8080:8080'
+      - '${PORT:-8080}:8080'
     environment:
-      # Valeurs prises dans le shell ou le .env local (non incluses dans l'image)
-      VITE_WP_API_URL: ${VITE_WP_API_URL:-}
-      VITE_WP_AUTH_USER: ${VITE_WP_AUTH_USER:-}
-      VITE_WP_AUTH_PASSWORD: ${VITE_WP_AUTH_PASSWORD:-}
+      # Valeurs prises dans le shell ou le .env local (non incluses dans
+      # l'image). Noms recommandés (README) : WP_* — les VITE_* restent
+      # acceptés en repli (cf. server/index.mjs).
+      WP_API_URL: ${WP_API_URL:-${VITE_WP_API_URL:-}}
+      WP_AUTH_USER: ${WP_AUTH_USER:-${VITE_WP_AUTH_USER:-}}
+      WP_AUTH_PASSWORD: ${WP_AUTH_PASSWORD:-${VITE_WP_AUTH_PASSWORD:-}}
       SUPERUSER_EMAIL: ${SUPERUSER_EMAIL:-}
     volumes:
       # Liste des emails autorisés (jamais accessible via HTTP)
       - etp-data:/data
+    healthcheck:
+      # /healthz ne nécessite pas de session (cf. README > Backend endpoints)
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8080/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
 volumes:

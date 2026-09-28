@@ -70,7 +70,7 @@ export default {
     title: 'Anmelden',
     subtitle: 'E-Mail eingeben, um das Dashboard zu öffnen',
     emailLabel: 'E-Mail-Adresse',
-    emailPlaceholder: 'du@beispiel.de',
+    emailPlaceholder: "du{'@'}beispiel.de",
     submit: 'Anmelden',
     submitting: 'Anmelden läuft…',
     denied: 'Diese E-Mail ist nicht freigegeben.',
@@ -84,7 +84,7 @@ export default {
     close: 'Schließen',
     intro:
       'Nur die hier gelisteten E-Mails (und der Superuser) können das Dashboard öffnen.',
-    addPlaceholder: 'hinzufuegen@beispiel.de',
+    addPlaceholder: "hinzufuegen{'@'}beispiel.de",
     add: 'Hinzufügen',
     remove: 'Entfernen',
     save: 'Speichern',

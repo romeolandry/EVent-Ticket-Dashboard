@@ -1,4 +1,5 @@
 import type { Attendee, RawWpAttendee, RawWpEvent, WpEvent } from '@/types/tickets'
+import { notifySessionExpired } from '@/services/sessionEvents'
 
 /**
  * Toutes les requêtes passent par le proxy du serveur Node (`/wp-api/*`) :
@@ -19,6 +20,7 @@ function sessionHeaders(extra: Record<string, string> = {}): Record<string, stri
 async function request<T>(path: string): Promise<T> {
   const response = await fetch(`${PROXY_BASE}${path}`, { headers: sessionHeaders() })
   if (response.status === 401 || response.status === 403) {
+    notifySessionExpired()
     throw new Error('Session expirée — reconnectez-vous.')
   }
   if (!response.ok) {
@@ -133,6 +135,7 @@ export async function setCheckedIn(attendeeId: number, checked: boolean): Promis
     },
   )
   if (response.status === 401 || response.status === 403) {
+    notifySessionExpired()
     throw new Error('Session expirée — reconnectez-vous.')
   }
   if (!response.ok) {

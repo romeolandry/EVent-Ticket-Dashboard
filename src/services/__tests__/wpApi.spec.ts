@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SESSION_EXPIRED_EVENT } from '@/services/sessionEvents'
 
 function mockFetch(payload: unknown) {
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue({
@@ -60,7 +61,13 @@ describe('wpApi — authentification', () => {
     )
     const { fetchEvents } = await import('@/services/wpApi')
 
+    const listener = vi.fn<() => void>()
+    window.addEventListener(SESSION_EXPIRED_EVENT, listener)
+
     await expect(fetchEvents()).rejects.toThrow('Session expirée')
+    expect(listener).toHaveBeenCalledOnce()
+
+    window.removeEventListener(SESSION_EXPIRED_EVENT, listener)
   })
 })
 
