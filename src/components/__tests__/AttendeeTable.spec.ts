@@ -10,6 +10,7 @@ function mountTable(props: {
   groups?: Record<number, number>
   groupCount?: number
   excludedEmails?: string[]
+  printingId?: number | null
 }) {
   return mount(AttendeeTable, { props, global: { plugins: [createTestI18n()] } })
 }
@@ -129,7 +130,7 @@ describe('AttendeeTable', () => {
 
   function actionButtons(wrapper: ReturnType<typeof mount>, rowIndex: number) {
     const buttons = wrapper.findAll('tbody tr')[rowIndex]!.findAll('button')
-    return [buttons[0]!, buttons[1]!, buttons[2]!] as const
+    return [buttons[0]!, buttons[1]!, buttons[2]!, buttons[3]!] as const
   }
 
   it('affiche la colonne Actions avec les états selon le check-in', () => {
@@ -179,5 +180,19 @@ describe('AttendeeTable', () => {
 
     await print1.trigger('click')
     expect(wrapper.emitted('print')?.[0]?.[0]).toMatchObject({ id: 10 })
+
+    const [, , , ql1] = actionButtons(wrapper, 0)
+    await ql1.trigger('click')
+    expect(wrapper.emitted('printQl800')?.[0]?.[0]).toMatchObject({ id: 10 })
+  })
+
+  it('désactive le bouton QL-800 pendant une impression en cours', () => {
+    const wrapper = mountTable({ attendees, groups: { 10: 1 }, printingId: 10 })
+
+    const [, , , ql1] = actionButtons(wrapper, 0)
+    expect(ql1.attributes('disabled')).toBeDefined()
+
+    const [, , , ql2] = actionButtons(wrapper, 1)
+    expect(ql2.attributes('disabled')).toBeDefined() // non checké de toute façon
   })
 })

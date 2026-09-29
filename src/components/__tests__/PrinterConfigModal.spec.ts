@@ -3,10 +3,12 @@ import { mount } from '@vue/test-utils'
 import PrinterConfigModal from '@/components/PrinterConfigModal.vue'
 import { createTestI18n } from '@/test/i18n'
 import { DEFAULT_BADGE_CONFIG } from '@/types/badge'
+import { DEFAULT_QL800_CONFIG } from '@/types/ql800'
 
 function mountModal(
   props: Partial<{
     config: typeof DEFAULT_BADGE_CONFIG
+    ql800Config: typeof DEFAULT_QL800_CONFIG
     eventTitle: string
     availableFieldKeys: string[]
     groupCount: number
@@ -17,6 +19,7 @@ function mountModal(
   return mount(PrinterConfigModal, {
     props: {
       config: { ...DEFAULT_BADGE_CONFIG },
+      ql800Config: { ...DEFAULT_QL800_CONFIG },
       eventTitle: 'Gebetskonferenz 2026',
       availableFieldKeys: [],
       groupCount: 4,
@@ -119,6 +122,19 @@ describe('PrinterConfigModal', () => {
       'bob@example.com',
     ])
     expect(wrapper.find('#excluded-email').attributes('list')).toBe('attendee-emails')
+  })
+
+  it('émet saveQl800 avec l’URL de l’agent au clic sur Enregistrer', async () => {
+    const wrapper = mountModal()
+
+    await wrapper.find('#ql800-agent-url').setValue('http://192.168.1.20:9100')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === 'Enregistrer')!
+      .trigger('click')
+
+    expect(wrapper.emitted('saveQl800')).toEqual([[{ agentUrl: 'http://192.168.1.20:9100' }]])
+    expect(wrapper.emitted('save')).toHaveLength(1)
   })
 
   it('émet close au clic sur ✕ et sur le fond', async () => {

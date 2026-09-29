@@ -47,6 +47,7 @@ export default {
     checkIn: 'Check-in',
     checkOut: 'Check-out',
     printBadge: 'Badge drucken',
+    printQl800: 'QL-800',
     group: 'Gruppe',
     excludedFromAutoAssign: 'Von der automatischen Zuweisung ausgeschlossen',
     printNeedsGroup: 'Vor dem Drucken eine Gruppe zuweisen',
@@ -131,6 +132,15 @@ export default {
     addExcluded: 'Ausschließen',
     removeExcluded: '{email} von der Ausschlussliste entfernen',
     excludedEmpty: 'Keine ausgeschlossenen E-Mails.',
+    ql800Section: 'Brother-QL-800-Drucker',
+    ql800AgentLabel: 'URL des lokalen Druckagenten',
+    ql800Hint:
+      'Der Agent läuft auf dem PC, an dem die QL-800 per USB hängt: python3 -m pip install brother_ql, dann node server/printAgent.mjs (siehe README). Diese Einstellung gilt nur für diesen Arbeitsplatz.',
+    ql800Test: 'Verbindung testen',
+    ql800Testing: 'Test läuft…',
+    ql800TestOk: 'Agent erreichbar — {model}, Etikett {label} mm',
+    ql800TestNoCli: 'Agent erreichbar, aber das brother_ql-CLI fehlt auf diesem PC',
+    ql800TestKo: 'Agent nicht erreichbar — läuft er auf diesem Arbeitsplatz?',
     cancel: 'Abbrechen',
     save: 'Speichern',
   },
@@ -146,6 +156,9 @@ export default {
     settingsSaved: 'Druckeinstellungen für alle Benutzer geteilt',
     settingsSaveError: 'Druckeinstellungen konnten nicht geteilt werden',
     groupReserved: 'Gruppe 1 ist für ausgeschlossene E-Mails reserviert',
+    badgePrintedQl800: 'Badge von {name} an die QL-800 gesendet',
+    ql800PrintError:
+      'QL-800-Druck fehlgeschlagen — das klassische Druckfenster wird geöffnet',
   },
   csv: {
     name: 'Name',

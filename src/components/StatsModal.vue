@@ -154,6 +154,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   width: 100%;
   max-width: 40rem;
   max-height: 85vh;
+  max-height: 85dvh;
   overflow-y: auto;
   padding: 1.75rem 2rem;
   border-radius: 16px;
@@ -330,5 +331,32 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .dot-absent {
   background: var(--color-background-mute);
   border: 1px solid var(--color-border-hover);
+}
+
+@media (max-width: 640px) {
+  .overlay {
+    padding: 0.5rem;
+  }
+
+  .modal {
+    padding: 1.25rem 1rem;
+    border-radius: 12px;
+    max-height: 92vh;
+    max-height: 92dvh;
+  }
+
+  .bar-row {
+    grid-template-columns: minmax(6rem, 9rem) 1fr 2.5rem;
+    gap: 0.5rem;
+  }
+
+  .pie-row {
+    gap: 1rem;
+  }
+
+  .pie {
+    width: 6rem;
+    height: 6rem;
+  }
 }
 </style>

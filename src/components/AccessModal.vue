@@ -138,6 +138,7 @@ async function save() {
   width: 100%;
   max-width: 32rem;
   max-height: 85vh;
+  max-height: 85dvh;
   overflow-y: auto;
   padding: 1.75rem 2rem;
   border-radius: 16px;
@@ -207,6 +208,7 @@ async function save() {
   display: flex;
   gap: 0.6rem;
   margin-top: 1rem;
+  flex-wrap: wrap;
 }
 
 .add-input {
@@ -262,5 +264,23 @@ async function save() {
   color: var(--color-accent);
   background: transparent;
   cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .overlay {
+    padding: 0.5rem;
+  }
+
+  .modal {
+    padding: 1.25rem 1rem;
+    border-radius: 12px;
+    max-height: 92vh;
+    max-height: 92dvh;
+  }
+
+  .add-input {
+    flex: 1 1 100%;
+    font-size: 1rem;
+  }
 }
 </style>

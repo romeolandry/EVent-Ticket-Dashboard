@@ -28,7 +28,9 @@ Node server** (backend) shipping in a single Docker image.
   Badges can only be printed for attendees who are checked in **and** have a
   group.
 - **Badge printing**: configurable print window — event title (overridable),
-  email, ticket, group, and any custom fields.
+  email, ticket, group, and any custom fields. A **QL-800** direct-print
+  action prints badge labels without any print dialog via a local agent (see
+  *Brother QL-800 direct printing* below).
 - **Statistics popup**: attendance-rate pie chart (checked-in vs not),
   children-by-age aggregation (parses free-text German answers) and
   arrival-day distribution.
@@ -106,6 +108,38 @@ npm run dev
 ```
 
 Vite proxies `/api` and `/wp-api` to the backend on port 8890.
+
+## Brother QL-800 direct printing
+
+Browsers cannot talk to USB printers without a print dialog, so direct
+printing goes through a **local agent** running on the PC the QL-800 is
+plugged into (`server/printAgent.mjs`, dependency-free Node ≥ 22). The SPA
+renders the badge on a canvas at the printer's native resolution (62 mm
+continuous roll DK-22205 → 696 px @ 300 dpi) and POSTs the PNG to the agent,
+which hands it to the Python [`brother_ql`](https://pypi.org/project/brother-ql/)
+CLI (automatic cut included).
+
+Setup on the reception PC:
+
+```sh
+python3 -m pip install brother_ql
+brother_ql discover            # find the printer URI (e.g. file:///dev/usb/lp0)
+node server/printAgent.mjs
+```
+
+Then, in the dashboard's **Impression** modal, set the agent URL
+(default `http://127.0.0.1:9100`) — this setting lives in `localStorage`
+(`etp-ql800-agent`) because it is specific to each workstation. The QL-800
+button in the attendee table prints instantly, with the same rules as the
+classic print (checked in + group assigned); on failure it falls back to the
+classic print window.
+
+Agent environment variables: `QL800_HOST` (`127.0.0.1`), `QL800_PORT`
+(`9100`), `QL800_MODEL` (`QL-800`), `QL800_PRINTER` (`file:///dev/usb/lp0`),
+`QL800_LABEL` (`62`). Pure logic (payload validation, CLI args) lives in
+`server/ql800Print.mjs` and is unit-tested; the frontend pieces are
+`src/services/badgeCanvas.ts`, `src/services/printAgentApi.ts` and
+`src/types/ql800.ts`.
 
 ### Commands
 

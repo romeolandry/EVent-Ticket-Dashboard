@@ -162,4 +162,30 @@ header {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
+
+@media (max-width: 640px) {
+  header {
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 0.6rem 1rem;
+  }
+
+  .tagline {
+    display: none;
+  }
+
+  .header-right {
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .header-btn {
+    padding: 0.45rem 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  .lang-select {
+    font-size: 1rem;
+  }
+}
 </style>

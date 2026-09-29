@@ -18,6 +18,14 @@ import {
   saveBadgeConfig,
   type BadgeConfig,
 } from '@/types/badge'
+import {
+  loadQl800Config,
+  normalizeQl800Config,
+  saveQl800Config,
+  type Ql800Config,
+} from '@/types/ql800'
+import { renderBadgePng, type BadgeRenderData } from '@/services/badgeCanvas'
+import { printBadgeOnQl800 } from '@/services/printAgentApi'
 import { fetchSetting, saveSetting } from '@/services/settingsApi'
 import { useI18n } from 'vue-i18n'
 import type { Attendee } from '@/types/tickets'
@@ -41,6 +49,10 @@ const {
 const showStats = ref(false)
 const showPrinterConfig = ref(false)
 const badgeConfig = ref<BadgeConfig>(loadBadgeConfig())
+// Config de l'agent QL-800 : propre au poste (l'imprimante USB n'est pas
+// sur le serveur) → localStorage uniquement, jamais partagée.
+const ql800Config = ref<Ql800Config>(loadQl800Config())
+const printingId = ref<number | null>(null)
 const nameFilter = ref('')
 const arrivalFilter = ref('')
 const groupFilter = ref('')
@@ -123,6 +135,12 @@ function onSavePrinterConfig(config: BadgeConfig) {
     .catch(() => notifications.notify(t('notify.settingsSaveError')))
 }
 
+/** URL de l'agent QL-800 : sauvegarde locale (propre au poste), sans toast. */
+function onSaveQl800Config(config: Ql800Config) {
+  ql800Config.value = normalizeQl800Config(config)
+  saveQl800Config(ql800Config.value)
+}
+
 function onSetGroup(attendeeId: number, group: number | null) {
   if (!attendeesStore.setGroup(attendeeId, group)) {
     notifications.notify(t('notify.groupReserved'))
@@ -193,39 +211,60 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
-function printBadge(attendee: Attendee) {
+function iconUrl(): string {
+  return new URL(`${import.meta.env.BASE_URL}favicon.png`, window.location.origin).href
+}
+
+/**
+ * Contenu du badge résolu à partir de la config : partagé entre la fenêtre
+ * d'impression classique (HTML) et le rendu canvas pour la QL-800.
+ */
+function badgeContent(attendee: Attendee): BadgeRenderData {
   const config = badgeConfig.value
   const eventTitle =
     config.customTitle.trim() ||
     (events.value.find((e) => e.id === attendeesStore.selectedEventId)?.title ?? '')
   const group = groupMap.value[attendee.id]
-  const iconUrl = new URL(`${import.meta.env.BASE_URL}favicon.png`, window.location.origin).href
-  const bw = config.colorMode === 'bw'
+  return {
+    logoUrl: config.showLogo ? iconUrl() : null,
+    eventTitle: config.showEventTitle && eventTitle ? eventTitle : null,
+    name: attendee.name,
+    groupLabel: config.showGroup && group != null ? t('badge.group', { n: group }) : null,
+    ticket: config.showTicket && attendee.ticket ? attendee.ticket : null,
+    email: config.showEmail && attendee.email ? attendee.email : null,
+    fields: config.fieldKeys.flatMap((key) => {
+      const value = attendee.fields[key]
+      return value ? [{ label: fieldLabel(key, t), value }] : []
+    }),
+    colorMode: config.colorMode,
+  }
+}
+
+function printBadge(attendee: Attendee) {
+  const data = badgeContent(attendee)
+  const bw = data.colorMode === 'bw'
 
   const lines: string[] = []
-  if (config.showLogo) {
-    lines.push(`<img class="logo" src="${iconUrl}" alt="">`)
+  if (data.logoUrl) {
+    lines.push(`<img class="logo" src="${data.logoUrl}" alt="">`)
   }
-  if (config.showEventTitle && eventTitle) {
-    lines.push(`<p class="event">${escapeHtml(eventTitle)}</p>`)
+  if (data.eventTitle) {
+    lines.push(`<p class="event">${escapeHtml(data.eventTitle)}</p>`)
   }
-  lines.push(`<p class="name">${escapeHtml(attendee.name)}</p>`)
-  if (config.showGroup && group != null) {
-    lines.push(`<p class="group">${escapeHtml(t('badge.group', { n: group }))}</p>`)
+  lines.push(`<p class="name">${escapeHtml(data.name)}</p>`)
+  if (data.groupLabel) {
+    lines.push(`<p class="group">${escapeHtml(data.groupLabel)}</p>`)
   }
-  if (config.showTicket && attendee.ticket) {
-    lines.push(`<p class="ticket">${escapeHtml(attendee.ticket)}</p>`)
+  if (data.ticket) {
+    lines.push(`<p class="ticket">${escapeHtml(data.ticket)}</p>`)
   }
-  if (config.showEmail && attendee.email) {
-    lines.push(`<p class="email">${escapeHtml(attendee.email)}</p>`)
+  if (data.email) {
+    lines.push(`<p class="email">${escapeHtml(data.email)}</p>`)
   }
-  for (const key of config.fieldKeys) {
-    const value = attendee.fields[key]
-    if (value) {
-      lines.push(
-        `<p class="custom"><strong>${escapeHtml(fieldLabel(key, t))}</strong> : ${escapeHtml(value)}</p>`,
-      )
-    }
+  for (const field of data.fields) {
+    lines.push(
+      `<p class="custom"><strong>${escapeHtml(field.label)}</strong> : ${escapeHtml(field.value)}</p>`,
+    )
   }
 
   const win = window.open('', '_blank', 'width=420,height=600')
@@ -235,8 +274,8 @@ function printBadge(attendee: Attendee) {
 <head>
 <meta charset="utf-8">
 <title>${escapeHtml(t('badge.title', { name: attendee.name }))}</title>
-<link rel="icon" type="image/png" href="${iconUrl}">
-<link rel="apple-touch-icon" href="${iconUrl}">
+<link rel="icon" type="image/png" href="${iconUrl()}">
+<link rel="apple-touch-icon" href="${iconUrl()}">
 <style>
   body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; }
   .badge { border: 2px solid #333; border-radius: 16px; padding: 24px; width: 340px; }
@@ -268,6 +307,27 @@ function printBadge(attendee: Attendee) {
     win.focus()
     win.print()
   })
+}
+
+/**
+ * Impression directe sur Brother QL-800, sans dialogue : le badge est rendu
+ * en canvas (62 mm @ 300 dpi) puis envoyé à l'agent local du PC relié à
+ * l'imprimante. En cas d'échec, repli sur l'impression classique.
+ */
+async function printBadgeQl800(attendee: Attendee) {
+  if (printingId.value != null) return
+  printingId.value = attendee.id
+  try {
+    const png = await renderBadgePng(badgeContent(attendee))
+    await printBadgeOnQl800(ql800Config.value.agentUrl, png)
+    notifications.notify(t('notify.badgePrintedQl800', { name: attendee.name }))
+  } catch (error) {
+    console.warn('[ql-800]', error)
+    notifications.notify(t('notify.ql800PrintError'))
+    printBadge(attendee)
+  } finally {
+    printingId.value = null
+  }
 }
 </script>
 
@@ -367,12 +427,14 @@ function printBadge(attendee: Attendee) {
         :columns-of="filteredAttendees"
         :loading="attendeesLoading"
         :pending-action-id="pendingActionId"
+        :printing-id="printingId"
         :groups="groupMap"
         :group-count="groupCount"
         :excluded-emails="excludedEmails"
         @check-in="attendeesStore.updateCheckIn($event, true)"
         @check-out="attendeesStore.updateCheckIn($event, false)"
         @print="printBadge"
+        @print-ql800="printBadgeQl800"
         @set-group="onSetGroup"
       />
       <nav
@@ -419,7 +481,9 @@ function printBadge(attendee: Attendee) {
       :group-count="groupCount"
       :excluded-emails="excludedEmails"
       :attendee-emails="attendeeEmails"
+      :ql800-config="ql800Config"
       @save="onSavePrinterConfig"
+      @save-ql800="onSaveQl800Config"
       @close="showPrinterConfig = false"
       @group-count-change="onGroupCountChange"
       @auto-assign="onAutoAssignGroups"
@@ -438,6 +502,21 @@ function printBadge(attendee: Attendee) {
   gap: 1.5rem;
   width: 100%;
   padding: 2rem;
+}
+
+@media (max-width: 640px) {
+  .dashboard {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  h1 {
+    font-size: 1.35rem;
+  }
+
+  .subtitle {
+    font-size: 0.88rem;
+  }
 }
 
 .dashboard-header {
@@ -490,6 +569,7 @@ h1 {
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .btn-secondary-plain {
@@ -549,6 +629,29 @@ h1 {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .toolbar {
+    gap: 0.6rem;
+  }
+
+  .toolbar .search-input {
+    max-width: none;
+    flex-basis: 100%;
+    font-size: 1rem;
+  }
+
+  .toolbar .filter-select {
+    flex: 1 1 auto;
+    font-size: 1rem;
+  }
+
+  .toolbar .btn-secondary {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 .search-input {

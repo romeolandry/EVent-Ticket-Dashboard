@@ -2,10 +2,14 @@
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { fieldLabel } from '@/services/fieldLabels'
+import { pingPrintAgent } from '@/services/printAgentApi'
 import type { BadgeConfig } from '@/types/badge'
+import type { Ql800Config } from '@/types/ql800'
 
 const props = defineProps<{
   config: BadgeConfig
+  /** Config de l'agent local QL-800 (propre au poste). */
+  ql800Config: Ql800Config
   /** Titre de l'événement sélectionné (placeholder du champ titre). */
   eventTitle: string
   /** Clés des champs personnalisés présents sur les participants chargés. */
@@ -20,6 +24,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   save: [config: BadgeConfig]
+  saveQl800: [config: Ql800Config]
   close: []
   groupCountChange: [count: number]
   autoAssign: []
@@ -55,6 +60,38 @@ function toggleField(key: string, checked: boolean) {
 function onGroupCountInput(event: Event) {
   const value = Number((event.target as HTMLInputElement).value)
   if (Number.isFinite(value) && value >= 1) emit('groupCountChange', value)
+}
+
+const ql800Draft = ref<Ql800Config>({ ...props.ql800Config })
+watch(
+  () => props.ql800Config,
+  (config) => {
+    ql800Draft.value = { ...config }
+  },
+)
+
+const ql800Testing = ref(false)
+const ql800TestMessage = ref('')
+
+async function testQl800Agent() {
+  ql800Testing.value = true
+  ql800TestMessage.value = ''
+  try {
+    const status = await pingPrintAgent(ql800Draft.value.agentUrl)
+    ql800TestMessage.value = status.brotherQl
+      ? t('printer.ql800TestOk', { model: status.model ?? 'QL-800', label: status.label ?? '62' })
+      : t('printer.ql800TestNoCli')
+  } catch {
+    ql800TestMessage.value = t('printer.ql800TestKo')
+  } finally {
+    ql800Testing.value = false
+  }
+}
+
+function onSave() {
+  // config BadgeConfig (partagée) + config agent QL-800 (locale au poste)
+  emit('saveQl800', { ...ql800Draft.value })
+  emit('save', draft.value)
 }
 </script>
 
@@ -188,11 +225,37 @@ function onGroupCountInput(event: Event) {
         <p v-else class="sub">{{ t('printer.excludedEmpty') }}</p>
       </section>
 
+      <section class="config-section">
+        <h3>{{ t('printer.ql800Section') }}</h3>
+        <label class="field-label" for="ql800-agent-url">
+          {{ t('printer.ql800AgentLabel') }}
+        </label>
+        <div class="group-row">
+          <input
+            id="ql800-agent-url"
+            v-model="ql800Draft.agentUrl"
+            type="url"
+            class="text-input exclusion-input"
+            placeholder="http://127.0.0.1:9100"
+          />
+          <button
+            type="button"
+            class="btn-secondary"
+            :disabled="ql800Testing"
+            @click="testQl800Agent"
+          >
+            {{ ql800Testing ? t('printer.ql800Testing') : t('printer.ql800Test') }}
+          </button>
+        </div>
+        <p v-if="ql800TestMessage" class="sub" role="status">{{ ql800TestMessage }}</p>
+        <p class="sub">{{ t('printer.ql800Hint') }}</p>
+      </section>
+
       <footer class="actions-footer">
         <button type="button" class="btn-secondary" @click="emit('close')">
           {{ t('printer.cancel') }}
         </button>
-        <button type="button" class="btn-primary" @click="emit('save', draft)">
+        <button type="button" class="btn-primary" @click="onSave">
           {{ t('printer.save') }}
         </button>
       </footer>
@@ -217,6 +280,7 @@ function onGroupCountInput(event: Event) {
   width: 100%;
   max-width: 34rem;
   max-height: 85vh;
+  max-height: 85dvh;
   overflow-y: auto;
   padding: 1.75rem 2rem;
   border-radius: 16px;
@@ -302,6 +366,7 @@ function onGroupCountInput(event: Event) {
   display: flex;
   align-items: center;
   gap: 0.9rem;
+  flex-wrap: wrap;
 }
 
 .section-gap {
@@ -385,5 +450,34 @@ function onGroupCountInput(event: Event) {
   justify-content: flex-end;
   gap: 0.75rem;
   margin-top: 1.75rem;
+}
+
+@media (max-width: 640px) {
+  .overlay {
+    padding: 0.5rem;
+  }
+
+  .modal {
+    padding: 1.25rem 1rem;
+    border-radius: 12px;
+    max-height: 92vh;
+    max-height: 92dvh;
+  }
+
+  .text-input {
+    font-size: 1rem;
+  }
+
+  .group-row {
+    gap: 0.6rem;
+  }
+
+  .exclusion-input {
+    flex: 1 1 100%;
+  }
+
+  .indent {
+    margin-left: 0.9rem;
+  }
 }
 </style>

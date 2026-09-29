@@ -15,6 +15,8 @@ const props = withDefaults(
     loading?: boolean
     /** Id du participant dont une action (check-in/out) est en cours. */
     pendingActionId?: number | null
+    /** Id du participant dont l'impression QL-800 est en cours. */
+    printingId?: number | null
     /** Groupes de travail : attendeeId → numéro de groupe. */
     groups?: Record<number, number>
     /** Nombre de groupes disponibles à l'assignation. */
@@ -26,6 +28,7 @@ const props = withDefaults(
     columnsOf: undefined,
     loading: false,
     pendingActionId: null,
+    printingId: null,
     groups: () => ({}),
     groupCount: 4,
     excludedEmails: () => [],
@@ -36,6 +39,7 @@ defineEmits<{
   checkIn: [attendeeId: number]
   checkOut: [attendeeId: number]
   print: [attendee: Attendee]
+  printQl800: [attendee: Attendee]
   setGroup: [attendeeId: number, group: number | null]
 }>()
 
@@ -97,7 +101,7 @@ const selectableGroups = computed(() => {
         </thead>
         <tbody>
           <tr v-for="attendee in attendees" :key="attendee.id">
-            <td class="name">
+            <td class="name" :data-label="t('table.name')">
               {{ attendee.name }}
               <span
                 v-if="isExcluded(attendee)"
@@ -108,17 +112,21 @@ const selectableGroups = computed(() => {
                 >⊘</span
               >
             </td>
-            <td>{{ attendee.email }}</td>
-            <td>{{ attendee.ticket }}</td>
-            <td>
+            <td :data-label="t('table.email')">{{ attendee.email }}</td>
+            <td :data-label="t('table.ticket')">{{ attendee.ticket }}</td>
+            <td :data-label="t('table.present')">
               <span class="badge" :class="attendee.checkedIn ? 'badge-ok' : 'badge-no'">
                 {{ attendee.checkedIn ? t('table.yes') : t('table.no') }}
               </span>
             </td>
-            <td v-for="column in dynamicColumns" :key="column">
+            <td
+              v-for="column in dynamicColumns"
+              :key="column"
+              :data-label="fieldLabel(column, t)"
+            >
               {{ attendee.fields[column] ?? '' }}
             </td>
-            <td>
+            <td :data-label="t('table.group')">
               <!-- Groupe réservé : pastille fixe, non modifiable -->
               <span
                 v-if="isExcluded(attendee)"
@@ -147,7 +155,7 @@ const selectableGroups = computed(() => {
                 <option v-for="n in selectableGroups" :key="n" :value="n">{{ n }}</option>
               </select>
             </td>
-            <td class="actions">
+            <td class="actions" :data-label="t('table.actions')">
               <button
                 type="button"
                 class="btn-action"
@@ -174,6 +182,21 @@ const selectableGroups = computed(() => {
                 @click="$emit('print', attendee)"
               >
                 {{ t('table.printBadge') }}
+              </button>
+              <button
+                type="button"
+                class="btn-action btn-print"
+                :disabled="
+                  !attendee.checkedIn ||
+                  groups[attendee.id] == null ||
+                  printingId === attendee.id
+                "
+                :title="
+                  groups[attendee.id] == null ? t('table.printNeedsGroup') : undefined
+                "
+                @click="$emit('printQl800', attendee)"
+              >
+                {{ t('table.printQl800') }}
               </button>
             </td>
           </tr>
@@ -330,5 +353,88 @@ tbody tr:hover {
 .state {
   color: var(--color-text);
   opacity: 0.7;
+}
+
+/* Mobile / narrow tablet : chaque participant devient une carte empilée. */
+@media (max-width: 768px) {
+  .table-card {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    overflow-x: visible;
+  }
+
+  table,
+  tbody,
+  tr,
+  td {
+    display: block;
+    width: 100%;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  tbody tr {
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-background);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    padding: 0.35rem 0;
+  }
+
+  tbody tr:hover {
+    background: var(--color-background);
+  }
+
+  td {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    padding: 0.45rem 0.9rem;
+    border-bottom: none;
+    overflow-wrap: anywhere;
+  }
+
+  td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.6;
+  }
+
+  .name {
+    white-space: normal;
+  }
+
+  .actions {
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .actions .btn-action {
+    width: 100%;
+  }
+
+  .btn-action {
+    padding: 0.55rem 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  .group-select {
+    padding: 0.5rem 0.6rem;
+    font-size: 1rem;
+  }
 }
 </style>

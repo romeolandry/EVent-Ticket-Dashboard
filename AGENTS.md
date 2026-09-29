@@ -76,6 +76,16 @@ Event Tickets Plus).
   utilisateurs connectés ; localStorage (`etp-badge-config`) n'est qu'un
   cache hors-ligne. Service front : `src/services/settingsApi.ts`,
   normalisation : `normalizeBadgeConfig` dans `src/types/badge.ts`.
+- Impression directe Brother QL-800 (sans dialogue) : le front rend le badge
+  en canvas (62 mm, 696 px @ 300 dpi — `src/services/badgeCanvas.ts`, contenu
+  commun avec l'impression HTML via `badgeContent()` de `DashboardView`) et
+  POSTe le PNG à un **agent local** tournant sur le PC relié à l'imprimante
+  en USB (`server/printAgent.mjs`, Node sans dépendances, qui appelle le CLI
+  Python `brother_ql` — logique pure testable : `server/ql800Print.mjs`).
+  L'URL de l'agent est **propre au poste** : localStorage `etp-ql800-agent`
+  uniquement (`src/types/ql800.ts`), jamais partagée côté serveur. En cas
+  d'échec, repli automatique sur la fenêtre d'impression classique. Config
+  agent via env : `QL800_HOST/PORT/MODEL/PRINTER/LABEL`.
 
 ## Déploiement (Docker)
 

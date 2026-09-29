@@ -137,4 +137,18 @@ input:focus-visible {
   color: #dc2626;
   font-size: 0.9rem;
 }
+
+@media (max-width: 640px) {
+  .login-page {
+    padding: 1rem;
+  }
+
+  .login-card {
+    padding: 1.5rem;
+  }
+
+  input {
+    font-size: 1rem;
+  }
+}
 </style>

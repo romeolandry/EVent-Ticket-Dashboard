@@ -82,4 +82,14 @@ select:disabled {
   opacity: 0.55;
   cursor: wait;
 }
+
+@media (max-width: 640px) {
+  .event-selector {
+    max-width: none;
+  }
+
+  select {
+    font-size: 1rem;
+  }
+}
 </style>
