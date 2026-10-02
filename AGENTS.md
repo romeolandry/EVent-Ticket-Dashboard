@@ -34,8 +34,12 @@ Event Tickets Plus).
 - Thème clair uniquement (les styles utilisent les variables `--color-*` de
   `src/assets/base.css`, pas de media query sombre).
 - Le dashboard n'affiche que les événements publics et actifs (`fetchEvents` :
-  `status` = publish et `end_date`/`start_date` >= aujourd'hui). Un
-  participant n'est affiché que si son événement est public et actif.
+  `status` = publish et `end_date`/`start_date` >= aujourd'hui). Le endpoint
+  events ne renvoie par défaut que les événements à venir (`start_date` >=
+  maintenant) : `fetchEvents` force donc `start_date=2000-01-01` et pagine
+  toutes les pages pour inclure les événements **en cours** (commencés mais
+  pas terminés), puis filtre côté client. Un participant n'est affiché que si
+  son événement est public et actif.
 - Le endpoint attendees **ignore totalement le paramètre `event=`** (même
   réponse quelle que soit la valeur sur wach-auf.com) : `fetchAttendees`
   récupère toutes les pages et filtre côté client sur `post_id` (= id de

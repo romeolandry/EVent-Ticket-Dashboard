@@ -87,11 +87,31 @@ function isActiveEvent(raw: RawWpEvent, today: string): boolean {
   return (raw.end_date ?? raw.start_date ?? today).slice(0, 10) >= today
 }
 
-/** Retourne la liste des événements à venir publiés sur le site WordPress. */
+type EventsPage = { events?: RawWpEvent[]; total_pages?: number }
+
+/**
+ * Retourne la liste des événements publiés non terminés sur le site WordPress.
+ *
+ * Sans paramètre, le endpoint ne renvoie que les événements à venir
+ * (start_date >= maintenant) : un événement en cours (déjà commencé mais pas
+ * terminé) serait invisible. On force donc un `start_date` dans le passé et
+ * on récupère toutes les pages, puis on filtre côté client (public + non
+ * terminé, cf. `isActiveEvent`).
+ */
 export async function fetchEvents(): Promise<WpEvent[]> {
-  const data = await request<{ events?: RawWpEvent[] }>('/tribe/events/v1/events')
+  const path = (page: number) =>
+    `/tribe/events/v1/events?start_date=2000-01-01&per_page=100&page=${page}`
+  const first = await request<EventsPage>(path(1))
+  const totalPages = first.total_pages ?? 1
+  const rest =
+    totalPages <= 1
+      ? []
+      : await Promise.all(
+          Array.from({ length: totalPages - 1 }, (_, i) => request<EventsPage>(path(i + 2))),
+        )
+  const all = [first, ...rest].flatMap((p) => p.events ?? [])
   const today = new Date().toISOString().slice(0, 10)
-  return (data.events ?? []).filter((raw) => isActiveEvent(raw, today)).map(normalizeEvent)
+  return all.filter((raw) => isActiveEvent(raw, today)).map(normalizeEvent)
 }
 
 type AttendeesPage = RawWpAttendee[] | { attendees?: RawWpAttendee[]; total_pages?: number }

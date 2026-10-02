@@ -36,7 +36,7 @@ describe('wpApi — authentification', () => {
     await fetchEvents()
 
     const [url] = fetchMock.mock.calls[0] as [string]
-    expect(url).toBe('/wp-api/tribe/events/v1/events')
+    expect(url).toBe('/wp-api/tribe/events/v1/events?start_date=2000-01-01&per_page=100&page=1')
     expect(url).not.toContain('wach-auf.com')
     expect(headersOf(fetchMock).Authorization).toBeUndefined()
   })
@@ -116,6 +116,36 @@ describe('wpApi — événements', () => {
     const events = await fetchEvents()
 
     expect(events.map((e) => e.id)).toEqual([1])
+  })
+
+  it('demande un start_date passé pour inclure les événements en cours', async () => {
+    const fetchMock = mockFetch({ events: [], total_pages: 1 })
+    const { fetchEvents } = await import('@/services/wpApi')
+
+    await fetchEvents()
+
+    const urls = fetchMock.mock.calls.map(([url]) => String(url))
+    expect(urls).toEqual(['/wp-api/tribe/events/v1/events?start_date=2000-01-01&per_page=100&page=1'])
+  })
+
+  it('récupère toutes les pages d’événements', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const url = String(input)
+      const payload = url.includes('page=2')
+        ? { events: [{ id: 2, title: 'Page 2', start_date: `${day(30)} 09:00:00` }] }
+        : {
+            events: [{ id: 1, title: 'Page 1', start_date: `${day(30)} 09:00:00` }],
+            total_pages: 2,
+          }
+      return { ok: true, json: async () => payload } as Response
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const { fetchEvents } = await import('@/services/wpApi')
+
+    const events = await fetchEvents()
+
+    expect(events.map((e) => e.id)).toEqual([1, 2])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('garde les événements en cours ou se terminant aujourd’hui', async () => {
